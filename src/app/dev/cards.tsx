@@ -26,9 +26,7 @@ function Frame({ finding, width }: { finding: Finding; width: number }) {
       <FindingCard
         key={round}
         finding={finding}
-        onApprove={reset}
-        onDismiss={reset}
-        onOpen={() => {}}
+        onChoose={reset}
       />
     </View>
   );

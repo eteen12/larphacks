@@ -28,6 +28,15 @@ function newestFirst(findings: Finding[]) {
   return [...findings].sort((a, b) => b.pr - a.pr);
 }
 
+// Fake mode only: start an instruction or note with one of these to force that failure.
+function forcedFakeFailure(text: unknown): ApiResult<never> | null {
+  if (typeof text !== 'string') return null;
+  if (text.startsWith('!offline')) return fail('network', 'Could not reach the server.');
+  if (text.startsWith('!fail')) return fail('server', 'The server returned 502.');
+  if (text.startsWith('!conflict')) return fail('already-handled', 'Already handled.');
+  return null;
+}
+
 function fail(kind: ApiError['kind'], message: string): ApiResult<never> {
   return { ok: false, error: { kind, message } };
 }
@@ -85,6 +94,8 @@ async function decide(
   body: object,
 ): Promise<ApiResult<void>> {
   if (!config.baseUrl) {
+    const forced = forcedFakeFailure(Object.values(body)[0]);
+    if (forced) return forced;
     if (decidedInFakeMode.has(id)) return fail('already-handled', 'Already handled.');
     decidedInFakeMode.add(id);
     return { ok: true, data: undefined };

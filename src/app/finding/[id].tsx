@@ -1,133 +1,165 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DecisionSheet } from '@/components/decision-sheet';
 import { FindingCard } from '@/components/finding-card';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { approveFinding, dismissFinding, type ApiResult } from '@/lib/findings-api';
-import { removeFinding, useFindingsStore } from '@/lib/findings-store';
+import { removeFinding, setNotice, useFindingsStore } from '@/lib/findings-store';
+import type { Choice } from '@/lib/swipe';
 import type { Finding } from '@/types/finding';
+
+type Decision = { finding: Finding; choice: Choice; text: string };
+
+const TINTS = {
+  light: { drift: '#bbf7d0', notDrift: '#d1d5db' },
+  dark: { drift: '#14532d', notDrift: '#374151' },
+};
+
+function send({ finding, choice, text }: Decision): Promise<ApiResult<void>> {
+  return choice === 'drift'
+    ? approveFinding(finding.id, text)
+    : dismissFinding(finding.id, text || undefined);
+}
 
 export default function FindingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
-  const finding = useFindingsStore().findings.find((f) => f.id === id);
+  const tints = TINTS[useColorScheme() === 'dark' ? 'dark' : 'light'];
+  const { findings, notice } = useFindingsStore();
+  const finding = findings.find((f) => f.id === id);
+  const next = findings.find((f) => f.id !== id);
 
-  const [message, setMessage] = useState<string | null>(null);
+  const dragX = useSharedValue(0);
+  const background = theme.background;
+  const tintStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      dragX.value,
+      [-150, 0, 150],
+      [tints.notDrift, background, tints.drift],
+    ),
+  }));
+
+  const [choice, setChoice] = useState<Choice | null>(null);
   const [cardKey, setCardKey] = useState(0);
-  const [approving, setApproving] = useState<Finding | null>(null);
-  const [instruction, setInstruction] = useState('');
   const [sending, setSending] = useState(false);
+  const [failure, setFailure] = useState<{ message: string; decision: Decision } | null>(null);
+  const inFlight = useRef(false);
 
-  // A handled finding leaves. Any other failure brings the card back with the error.
-  const finish = (target: Finding, result: ApiResult<void>) => {
-    if (result.ok || result.error.kind === 'already-handled') {
-      removeFinding(target.id);
-      router.back();
-      return;
-    }
-    setMessage(result.error.message);
+  const returnCard = () => {
+    dragX.set(0);
     setCardKey((k) => k + 1);
   };
 
-  const closeSheet = () => {
-    setApproving(null);
-    setInstruction('');
-  };
-
-  const cancelApprove = () => {
-    closeSheet();
-    setCardKey((k) => k + 1);
-  };
-
-  const submitApprove = async () => {
-    if (!approving || sending) return;
-    setSending(true);
-    const result = await approveFinding(approving.id, instruction);
+  const goNext = (decided: Finding) => {
+    const remaining = findings.filter((f) => f.id !== decided.id);
+    removeFinding(decided.id);
     setSending(false);
-    closeSheet();
-    finish(approving, result);
+    inFlight.current = false;
+    dragX.set(0);
+    const following = remaining[findings.findIndex((f) => f.id === decided.id)] ?? remaining[0];
+    if (following) {
+      router.replace({ pathname: '/finding/[id]', params: { id: following.id } });
+    } else {
+      router.back();
+    }
+  };
+
+  // The card leaves right away. If the request fails it comes back with the error.
+  const attempt = async (decision: Decision) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSending(true);
+    setFailure(null);
+    setNotice(null);
+    const result = await send(decision);
+    if (result.ok) {
+      goNext(decision.finding);
+    } else if (result.error.kind === 'already-handled') {
+      setNotice('Already handled.');
+      goNext(decision.finding);
+    } else {
+      inFlight.current = false;
+      setSending(false);
+      setFailure({ message: result.error.message, decision });
+      returnCard();
+    }
   };
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <ThemedView style={styles.container}>
+      <Animated.View style={[styles.root, tintStyle]}>
         <SafeAreaView style={styles.safeArea}>
           <Pressable onPress={() => router.back()}>
             <ThemedText type="link">Back to inbox</ThemedText>
           </Pressable>
 
-          {message ? (
-            <ThemedText type="small" style={styles.error}>
-              {message}
+          {notice ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {notice}
             </ThemedText>
           ) : null}
 
-          {finding ? (
-            <FindingCard
-              key={`${finding.id}-${cardKey}`}
-              finding={finding}
-              onApprove={setApproving}
-              onDismiss={async (target) => finish(target, await dismissFinding(target.id))}
-              onOpen={() => {}}
-            />
+          {failure ? (
+            <View style={styles.failure}>
+              <ThemedText type="small" style={styles.error}>
+                {failure.message}
+              </ThemedText>
+              <Pressable onPress={() => attempt(failure.decision)}>
+                <ThemedText type="link">Retry</ThemedText>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {sending ? (
+            <ThemedText themeColor="textSecondary">Sending…</ThemedText>
+          ) : finding ? (
+            <View>
+              {next ? (
+                <View
+                  style={[styles.peek, { backgroundColor: theme.backgroundSelected }]}
+                  pointerEvents="none"
+                />
+              ) : null}
+              <FindingCard
+                key={`${finding.id}-${cardKey}`}
+                finding={finding}
+                dragX={dragX}
+                disabled={choice !== null}
+                onChoose={(_, picked) => setChoice(picked)}
+              />
+            </View>
           ) : (
             <ThemedText themeColor="textSecondary">This finding is no longer open.</ThemedText>
           )}
         </SafeAreaView>
 
-        <Modal visible={!!approving} transparent animationType="slide" onRequestClose={cancelApprove}>
-          <KeyboardAvoidingView
-            style={styles.sheetWrap}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <ThemedView type="backgroundElement" style={styles.sheet}>
-              <ThemedText type="smallBold">What should change?</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {approving?.item}
-              </ThemedText>
-              <TextInput
-                value={instruction}
-                onChangeText={setInstruction}
-                placeholder="e.g. Set the refund window to 30 days"
-                placeholderTextColor={theme.textSecondary}
-                multiline
-                autoFocus
-                style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
-              />
-              <View style={styles.row}>
-                <Pressable onPress={cancelApprove} style={[styles.button, styles.cancel]}>
-                  <ThemedText type="smallBold">Cancel</ThemedText>
-                </Pressable>
-                <Pressable
-                  onPress={submitApprove}
-                  disabled={!instruction.trim() || sending}
-                  style={[
-                    styles.button,
-                    styles.send,
-                    (!instruction.trim() || sending) && styles.disabled,
-                  ]}>
-                  <ThemedText type="smallBold" style={styles.white}>
-                    {sending ? 'Sending…' : 'Approve'}
-                  </ThemedText>
-                </Pressable>
-              </View>
-            </ThemedView>
-          </KeyboardAvoidingView>
-        </Modal>
-      </ThemedView>
+        <DecisionSheet
+          choice={choice}
+          item={finding?.item ?? ''}
+          onCancel={() => {
+            setChoice(null);
+            returnCard();
+          }}
+          onSend={(text) => {
+            if (!finding || !choice) return;
+            const decision = { finding, choice, text };
+            setChoice(null);
+            attempt(decision);
+          }}
+        />
+      </Animated.View>
     </GestureHandlerRootView>
   );
 }
@@ -136,59 +168,27 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  container: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
     gap: Spacing.three,
     maxWidth: MaxContentWidth,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  peek: {
+    position: 'absolute',
+    top: -10,
+    left: Spacing.four,
+    right: Spacing.four,
+    height: 40,
+    borderRadius: Spacing.four,
+  },
+  failure: {
+    gap: Spacing.one,
   },
   error: {
     color: '#dc2626',
-  },
-  sheetWrap: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  sheet: {
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-    padding: Spacing.four,
-    gap: Spacing.three,
-  },
-  input: {
-    minHeight: 96,
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-    fontSize: 16,
-    textAlignVertical: 'top',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  button: {
-    flex: 1,
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-  cancel: {
-    backgroundColor: 'rgba(128,128,128,0.25)',
-  },
-  send: {
-    backgroundColor: '#16a34a',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  white: {
-    color: '#ffffff',
   },
 });

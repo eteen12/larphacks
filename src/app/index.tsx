@@ -9,7 +9,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { refreshFindings, useFindingsStore } from '@/lib/findings-store';
 
 export default function InboxScreen() {
-  const { findings, status, error, refreshing } = useFindingsStore();
+  const { findings, status, error, refreshing, notice } = useFindingsStore();
 
   useEffect(() => {
     refreshFindings();
@@ -76,6 +76,11 @@ export default function InboxScreen() {
             </Pressable>
           ) : null}
         </View>
+        {notice ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {notice}
+          </ThemedText>
+        ) : null}
         {body()}
       </SafeAreaView>
     </ThemedView>

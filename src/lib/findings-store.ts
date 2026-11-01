@@ -8,9 +8,16 @@ export type FindingsState = {
   status: 'loading' | 'ready' | 'error';
   error: ApiError | null;
   refreshing: boolean;
+  notice: string | null;
 };
 
-let state: FindingsState = { findings: [], status: 'loading', error: null, refreshing: false };
+let state: FindingsState = {
+  findings: [],
+  status: 'loading',
+  error: null,
+  refreshing: false,
+  notice: null,
+};
 const listeners = new Set<() => void>();
 
 function set(next: Partial<FindingsState>) {
@@ -30,7 +37,11 @@ export function useFindingsStore() {
 }
 
 export async function refreshFindings() {
-  set(state.status === 'ready' ? { refreshing: true } : { status: 'loading', error: null });
+  set(
+    state.status === 'ready'
+      ? { refreshing: true, notice: null }
+      : { status: 'loading', error: null, notice: null },
+  );
   const result = await fetchOpenFindings();
   if (result.ok) {
     set({ findings: result.data, status: 'ready', error: null, refreshing: false });
@@ -41,4 +52,8 @@ export async function refreshFindings() {
 
 export function removeFinding(id: string) {
   set({ findings: state.findings.filter((f) => f.id !== id) });
+}
+
+export function setNotice(notice: string | null) {
+  set({ notice });
 }

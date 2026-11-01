@@ -201,3 +201,27 @@ describe('fake mode decisions', () => {
     if (!result.ok) expect(result.error.kind).toBe('already-handled');
   });
 });
+
+describe('forced fake failures', () => {
+  it.each([
+    ['!offline', 'network'],
+    ['!fail please', 'server'],
+    ['!conflict', 'already-handled'],
+  ])('%s forces %s on approve and leaves the finding open', async (text, kind) => {
+    const result = await approveFinding('f1', text, {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe(kind);
+
+    const open = await fetchOpenFindings({});
+    if (!open.ok) throw new Error('expected fixtures');
+    expect(open.data.map((f) => f.id)).toContain('f1');
+  });
+
+  it('forces a failure on dismiss notes too', async () => {
+    const result = await dismissFinding('f1', '!fail', {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('server');
+  });
+});
