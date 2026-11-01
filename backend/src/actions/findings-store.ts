@@ -1,13 +1,19 @@
 // How approve, dismiss and MCP read and update findings: the DB store (running server) or an in-memory fake (tests).
 import type { StoredFinding } from "../../../shared/finding.js";
 import type { Finding, FindingState } from "../finding";
-import { getFindingById, listFindingsByIssue, setFindingState, type PoolLike } from "../check/store.js";
+import { countOpenFindingsOnPr, getFindingById, listFindingsByIssue, setFindingState, type PoolLike } from "../check/store.js";
 
 export interface FindingsStore {
   get(id: string): Promise<Finding | null>;
   setState(id: string, state: Exclude<FindingState, "open">): Promise<void>;
   listByIssue(repo: string, issue: number): Promise<Finding[]>;
+  /** The commit the finding was checked against, or null when unknown. */
+  headSha(id: string): Promise<string | null>;
+  /** Findings still open on a pull request. */
+  countOpenOnPr(repo: string, pr: number): Promise<number>;
 }
+
+export const FIXTURE_HEAD_SHA = "abc123";
 
 export class FindingsStoreError extends Error {
   constructor(
@@ -24,8 +30,17 @@ export class FakeFindingsStore implements FindingsStore {
   private readonly findings = new Map<string, Finding>();
   private failSetState = 0;
 
-  constructor(seed: Finding[] = []) {
+  /** Every fixture finding was checked at this commit unless a test says otherwise. */
+  constructor(seed: Finding[] = [], private readonly shas: Record<string, string> = {}) {
     for (const f of seed) this.findings.set(f.id, structuredClone(f));
+  }
+
+  async headSha(id: string) {
+    return this.findings.has(id) ? (this.shas[id] ?? FIXTURE_HEAD_SHA) : null;
+  }
+
+  async countOpenOnPr(repo: string, pr: number) {
+    return [...this.findings.values()].filter((f) => f.repo === repo && f.pr === pr && f.state === "open").length;
   }
 
   failNextSetState(): this {
@@ -72,5 +87,9 @@ export function createDbFindingsStore(pool: PoolLike): FindingsStore {
     async listByIssue(repo, issue) {
       return (await listFindingsByIssue(pool, repo, issue)).map(toFinding);
     },
+    async headSha(id) {
+      return (await getFindingById(pool, id))?.head_sha ?? null;
+    },
+    countOpenOnPr: (repo, pr) => countOpenFindingsOnPr(pool, repo, pr),
   };
 }

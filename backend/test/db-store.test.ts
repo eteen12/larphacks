@@ -38,4 +38,21 @@ describe("#51 DB findings store", () => {
     expect(await s.listByIssue("demo-org/demo-shop", 999)).toEqual([]);
     expect(await s.listByIssue("other/repo", 12)).toEqual([]);
   });
+
+  it("headSha returns the commit the finding was checked against, null for unknown ids", async () => {
+    const s = await store();
+    expect(await s.headSha(fixtureFindings[0]!.id)).toBe("abc123");
+    expect(await s.headSha("nope")).toBeNull();
+  });
+
+  it("countOpenOnPr counts only open findings on that repo and PR", async () => {
+    const s = await store();
+    expect(await s.countOpenOnPr("demo-org/demo-shop", 40)).toBe(2);
+    await s.setState(fixtureFindings[0]!.id, "dismissed");
+    expect(await s.countOpenOnPr("demo-org/demo-shop", 40)).toBe(1);
+    await s.setState(fixtureFindings[1]!.id, "approved");
+    expect(await s.countOpenOnPr("demo-org/demo-shop", 40)).toBe(0);
+    expect(await s.countOpenOnPr("demo-org/demo-shop", 38)).toBe(0);
+    expect(await s.countOpenOnPr("other/repo", 40)).toBe(0);
+  });
 });

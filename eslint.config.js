@@ -5,6 +5,6 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*', 'backend/*', 'shared/*'],
+    ignores: ['dist/*', 'backend/*', 'e2e/*', 'shared/*'],
   },
 ]);

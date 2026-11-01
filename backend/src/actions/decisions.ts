@@ -1,14 +1,12 @@
 // Carries out approve, dismiss and recorded decisions on GitHub (#25).
 // Shared by the HTTP routes and the MCP tools so there is one copy of the logic. Makes no drift judgements.
 import type { Finding } from "../finding";
-import type { CheckRequester } from "./checks";
 import { FindingsStoreError, type FindingsStore } from "./findings-store";
 import { GitHubError, type GitHubWriter } from "./github";
 
 export interface ActionDeps {
   github: GitHubWriter;
   findings: FindingsStore;
-  checks: CheckRequester;
   now?: () => Date;
 }
 
@@ -22,9 +20,11 @@ export interface ApproveResult {
 
 export interface DismissResult {
   finding: Finding;
-  issue_comment: string;
+  /** Set when the finding was dismissed but the PR's status could not be set. */
   warning?: string;
 }
+
+export const ALL_RESOLVED = "All drift findings resolved";
 
 export interface RecordResult {
   issue_comment: string;
@@ -125,6 +125,11 @@ export async function approveFinding(
   return { ok: true, body: { finding: { ...f, state: "approved" }, issue_comment: issueComment.url, pr_comment: prComment.url } };
 }
 
+/**
+ * Dismiss only records the decision in the database. When it was the PR's last open finding,
+ * the head commit's drift-guard status goes green. No issue comment, no reopen, no re-check (#53).
+ * `note` is validated but not stored: the findings table has no column for it.
+ */
 export async function dismissFinding(
   deps: ActionDeps,
   input: { findingId: string; note?: unknown; by?: string },
@@ -132,36 +137,27 @@ export async function dismissFinding(
   if (input.note !== undefined && input.note !== null && typeof input.note !== "string") {
     return { ok: false, status: 400, error: "note must be a string" };
   }
-  const note = (input.note as string | undefined)?.trim() || "Dismissed, no reason given";
 
   const loaded = await loadOpenFinding(deps, input.findingId);
   if (!loaded.ok) return loaded;
   const f = loaded.body;
-  const by = input.by?.trim() || "Drift guard inbox";
-
-  let issueComment;
-  try {
-    issueComment = await deps.github.commentOnIssue(
-      f.repo,
-      f.issue,
-      formatDecision({ item: f.item, decision: note, by, date: today(deps), findingId: f.id }),
-      { marker: decisionMarker("dismiss", f.id) },
-    );
-  } catch (err) {
-    return upstreamFailure(err, "GitHub write failed");
-  }
 
   try {
     await deps.findings.setState(f.id, "dismissed");
   } catch (err) {
-    return upstreamFailure(err, "GitHub write succeeded but updating the finding failed");
+    return upstreamFailure(err, "Updating the finding failed");
   }
 
-  const body: DismissResult = { finding: { ...f, state: "dismissed" }, issue_comment: issueComment.url };
+  const body: DismissResult = { finding: { ...f, state: "dismissed" } };
   try {
-    await deps.checks.requestCheck(f.repo, f.pr);
+    if ((await deps.findings.countOpenOnPr(f.repo, f.pr)) === 0) {
+      const sha = await deps.findings.headSha(f.id);
+      if (!sha) throw new Error(`no head commit recorded for finding ${f.id}`);
+      await deps.github.setCommitStatus(f.repo, sha, "success", ALL_RESOLVED);
+    }
   } catch (err) {
-    body.warning = `Re-check request failed (${(err as Error).message}); the next push to PR #${f.pr} will re-check.`;
+    console.error(`drift-guard success status failed after dismissing ${f.id} (${f.repo}#${f.pr})`, err);
+    body.warning = `Finding dismissed, but setting the PR #${f.pr} status failed (${(err as Error).message}); the next push to the PR will re-check.`;
   }
   return { ok: true, body };
 }
