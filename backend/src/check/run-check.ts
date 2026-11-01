@@ -1,12 +1,15 @@
 import type { CheckJob, RunCheck } from "./queue.js";
+import type { Workspace } from "./workspace.js";
 
 /**
  * Per-run state carried through the pipeline. Later leaves add fields:
- * run folder (#11), GitHub context (#12), agent output (#14),
- * validated findings (#15), saved findings (#17).
+ * agent output (#14), validated findings (#15), saved findings (#17).
  */
 export interface CheckContext {
   job: CheckJob;
+  workspace?: Workspace;
+  /** Registered by stages; run in reverse order when the run ends, success or failure. */
+  cleanups: Array<() => Promise<void>>;
 }
 
 export interface CheckStage {
@@ -16,15 +19,22 @@ export interface CheckStage {
 
 /**
  * The check pipeline, built stage by stage (one leaf adds one stage).
- * Any stage throwing = failed run; the queue logs it.
+ * Any stage throwing = failed run; the queue logs it. Cleanups always run.
  */
 export function createRunCheck(stages: CheckStage[]): RunCheck {
   return async (job) => {
-    const ctx: CheckContext = { job };
-    console.log(`check start ${job.owner}/${job.repo}#${job.prNumber}@${job.headSha} issue=${job.issueNumber}`);
-    for (const stage of stages) {
-      await stage.run(ctx);
+    const ctx: CheckContext = { job, cleanups: [] };
+    const key = `${job.owner}/${job.repo}#${job.prNumber}@${job.headSha}`;
+    console.log(`check start ${key} issue=${job.issueNumber}`);
+    try {
+      for (const stage of stages) {
+        await stage.run(ctx);
+      }
+      console.log(`check done ${key}`);
+    } finally {
+      for (const cleanup of ctx.cleanups.reverse()) {
+        await cleanup().catch((err) => console.error(`cleanup failed for ${key}`, err));
+      }
     }
-    console.log(`check done ${job.owner}/${job.repo}#${job.prNumber}@${job.headSha}`);
   };
 }

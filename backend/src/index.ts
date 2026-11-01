@@ -3,11 +3,16 @@ import { createApp } from "./app.js";
 import { findLinkedTask } from "./check/linked-task.js";
 import { CheckQueue } from "./check/queue.js";
 import { createRunCheck } from "./check/run-check.js";
+import { workspaceStage } from "./check/stages.js";
 import { loadEnv } from "./env.js";
 
 const env = loadEnv();
 
-const queue = new CheckQueue(createRunCheck([]));
+const queue = new CheckQueue(
+  createRunCheck([
+    workspaceStage({ githubToken: env.githubToken, vaultRepo: env.vaultRepo }),
+  ]),
+);
 
 const app = createApp({
   webhook: {
