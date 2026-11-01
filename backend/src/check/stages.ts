@@ -4,7 +4,8 @@ import { createWorkspace, destroyWorkspace, type WorkspaceDeps } from "./workspa
 import { writeGithubContext } from "./github-context.js";
 import { agentJobPrompt, runAgent, type AgentResult } from "./agent.js";
 import { buildFindings, parseCheckOutput } from "./validate.js";
-import { saveRunFindings, type PoolLike } from "./store.js";
+import { listDismissedForIssue, saveRunFindings, type PoolLike, type Queryable } from "./store.js";
+import { writeDecisions } from "./decisions.js";
 
 /** #11 — clone the PR code and the vault into a per-run folder, removed when the run ends. */
 export function workspaceStage(deps: WorkspaceDeps): CheckStage {
@@ -17,19 +18,22 @@ export function workspaceStage(deps: WorkspaceDeps): CheckStage {
   };
 }
 
-/** #12 — write issue.md, parents.md, board.md, pr.md and diff.patch for the agent. */
-export function githubContextStage(deps: { githubToken: string }): CheckStage {
+/** #12 — write issue.md, parents.md, board.md, pr.md and diff.patch for the agent; #54 adds decisions.md. */
+export function githubContextStage(deps: { githubToken: string; pool: Queryable }): CheckStage {
   return {
     name: "github-context",
     async run(ctx) {
       if (!ctx.workspace) throw new Error("github-context stage needs the workspace stage first");
       await writeGithubContext(deps.githubToken, ctx.workspace.githubDir, ctx.job);
+      // A failed lookup fails the run: silently omitting it would let dismissed findings come back.
+      const dismissed = await listDismissedForIssue(deps.pool, `${ctx.job.owner}/${ctx.job.repo}`, ctx.job.issueNumber);
+      await writeDecisions(ctx.workspace.githubDir, dismissed);
     },
   };
 }
 
 /** #14 — run `claude -p` read-only on the run folder; prompt read fresh each run. */
-export function agentStage(deps: { promptPath: string; timeoutMs?: number }): CheckStage {
+export function agentStage(deps: { promptPath: string; timeoutMs?: number; claudeCmd?: string[] }): CheckStage {
   return {
     name: "agent",
     async run(ctx) {
@@ -39,6 +43,7 @@ export function agentStage(deps: { promptPath: string; timeoutMs?: number }): Ch
         prompt: agentJobPrompt(prompt, ctx.job),
         cwd: ctx.workspace.dir,
         timeoutMs: deps.timeoutMs,
+        claudeCmd: deps.claudeCmd,
       });
     },
   };

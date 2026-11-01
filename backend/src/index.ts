@@ -50,7 +50,7 @@ const queue = new CheckQueue(
   createRunCheck([
     statusStartStage({ github }),
     workspaceStage({ githubToken: env.githubToken, vaultRepo: env.vaultRepo }),
-    githubContextStage({ githubToken: env.githubToken }),
+    githubContextStage({ githubToken: env.githubToken, pool }),
     agentStage({ promptPath: checkPromptPath }),
     validateStage({
       rerunWithError: async (ctx, error) =>
