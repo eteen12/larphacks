@@ -92,6 +92,14 @@ describe("buildFindings", () => {
     expect(f.id).toBeTruthy();
     expect(f.created_at).toBeTruthy();
   });
+
+  it("stores empty note fields of a no_source finding as null", () => {
+    const output = parseCheckOutput(
+      good([{ ...conflictFinding, kind: "no_source", note_quote: "", note_path: "", note_date: "" }]),
+    );
+    const [f] = buildFindings(output, JOB, [], 0.7);
+    expect(f).toMatchObject({ note_quote: null, note_path: null, note_date: null });
+  });
 });
 
 describe("validateStage", () => {

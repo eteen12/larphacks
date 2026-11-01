@@ -12,6 +12,8 @@ import { commentStage } from "./check/pr-comment.js";
 import { statusStage, statusStartStage } from "./check/status.js";
 import { migrate, type PoolLike } from "./check/store.js";
 import { createGitHub, type GitHubWriter } from "./actions/github.js";
+import { FakeCheckRequester } from "./actions/checks.js";
+import { createFindingsApiStore } from "./actions/findings-store.js";
 import { loadEnv } from "./env.js";
 
 const env = loadEnv();
@@ -67,13 +69,28 @@ const queue = new CheckQueue(
   ]),
 );
 
+if (!env.findingsApiKey) throw new Error("FINDINGS_API_KEY is not set");
+
+// INTEGRATION TODO (#51): approve/dismiss/MCP read findings by calling this server's own
+// GET /findings over HTTP. Replace with an in-process store over `pool`.
+const findingsStore = createFindingsApiStore({
+  baseUrl: process.env.FINDINGS_API_URL || `http://127.0.0.1:${env.port}`,
+  apiKey: env.findingsApiKey,
+});
+
+// INTEGRATION TODO (#52): dismiss still asks for a re-check via POST /checks, which does not
+// exist here. Recorded in memory only, nothing re-runs. #52 removes the re-check from dismiss.
+const checkRequester = new FakeCheckRequester();
+
 const app = createApp({
   webhook: {
     webhookSecret: env.githubWebhookSecret,
     queue,
     resolveLinkedTask: (pr) => findLinkedTask(env.githubToken, pr),
   },
-  findings: { pool, apiKey: env.findingsApiKey, frontendOrigin: env.frontendOrigin },
+  findingsApi: { pool, apiKey: env.findingsApiKey, frontendOrigin: env.frontendOrigin },
+  actions: { github, findings: findingsStore, checks: checkRequester },
+  apiKey: env.findingsApiKey,
 });
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {

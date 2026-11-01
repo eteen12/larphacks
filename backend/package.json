@@ -1,26 +1,30 @@
 {
-  "name": "@drift/backend",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
+  "name": "drift-guard-backend",
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "real-run": "tsx scripts/real-run.ts"
   },
+  "type": "module",
   "dependencies": {
-    "@hono/node-server": "^1.19.7",
-    "hono": "^4.10.7",
+    "@hono/node-server": "^2.1.5",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "hono": "^4.13.16",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
+    "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
     "pg-mem": "^3.0.14",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
-  }
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "private": true
 }

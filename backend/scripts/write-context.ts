@@ -19,6 +19,6 @@ await mkdir(outdir, { recursive: true });
 await writeGithubContext(
   token,
   outdir,
-  { owner, repo, prNumber: Number(pr), headSha: "", issueNumber: Number(issue) },
+  { owner, repo, prNumber: Number(pr), headSha: "", issueNumber: Number(issue), enqueuedAt: Date.now() },
 );
 console.log(`wrote context files to ${outdir}`);

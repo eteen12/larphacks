@@ -11,7 +11,7 @@ import {
   type CommitState,
   type GitHubWriter,
   type IssueComment,
-} from "./github.js";
+} from "./github";
 
 export type FakeCall =
   | { method: "reopenIssue"; repo: string; target: number; reopened: boolean }

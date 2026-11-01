@@ -12,9 +12,9 @@ export interface Finding {
   item: string;
   kind: FindingKind;
   issue_quote: string;
-  note_quote: string;
-  note_path: string;
-  note_date: string;
+  note_quote: string | null;
+  note_path: string | null;
+  note_date: string | null;
   diff_line: string;
   confidence: number;
   searches: string[];
