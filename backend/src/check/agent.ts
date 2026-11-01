@@ -17,6 +17,8 @@ export interface AgentDeps {
   cwd: string;
   timeoutMs?: number;
   maxTurns?: number;
+  /** Model alias or id for `claude --model`; defaults to CHECK_MODEL, then "haiku". */
+  model?: string;
   /** Full argv prefix for the harness; defaults to ["claude" | "claude.cmd"]. Tests inject a fake. */
   claudeCmd?: string[];
   /** Extra env for the child on top of process.env. */
@@ -97,7 +99,8 @@ export class StreamAccumulator {
 }
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
-const DEFAULT_MAX_TURNS = 40;
+const DEFAULT_MAX_TURNS = 30;
+export const DEFAULT_MODEL = "haiku";
 
 /**
  * #14 — run `claude -p` on the run folder with only read tools.
@@ -119,6 +122,8 @@ export async function runAgent(deps: AgentDeps): Promise<AgentResult> {
       "--verbose",
       "--max-turns",
       String(deps.maxTurns ?? DEFAULT_MAX_TURNS),
+      "--model",
+      deps.model ?? (process.env.CHECK_MODEL?.trim() || DEFAULT_MODEL),
     ],
     { cwd: deps.cwd, env: { ...process.env, ...deps.env }, stdio: ["ignore", "pipe", "pipe"] },
   );

@@ -78,6 +78,31 @@ describe("runAgent", () => {
     expect(r.turns).toBe(3);
   });
 
+  it("passes --model: haiku by default, CHECK_MODEL or the model option when set", async () => {
+    const argvOf = async (model?: string, env?: string) => {
+      const prev = process.env.CHECK_MODEL;
+      if (env === undefined) delete process.env.CHECK_MODEL;
+      else process.env.CHECK_MODEL = env;
+      try {
+        const r = await runAgent({
+          prompt: "p",
+          cwd: await tmpCwd(),
+          claudeCmd: FAKE,
+          env: { FIXTURE_SCENARIO: "argv" },
+          model,
+        });
+        return JSON.parse(r.finalText) as string[];
+      } finally {
+        if (prev === undefined) delete process.env.CHECK_MODEL;
+        else process.env.CHECK_MODEL = prev;
+      }
+    };
+    const flag = (a: string[]) => a[a.indexOf("--model") + 1];
+    expect(flag(await argvOf())).toBe("haiku");
+    expect(flag(await argvOf(undefined, "sonnet"))).toBe("sonnet");
+    expect(flag(await argvOf("opus", "sonnet"))).toBe("opus");
+  });
+
   it("timeout kills the run = failed run", async () => {
     await expect(
       runAgent({

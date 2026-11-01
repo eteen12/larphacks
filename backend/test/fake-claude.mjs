@@ -9,6 +9,10 @@ if (scenario === "hang") {
 } else if (scenario === "noanswer") {
   emit({ type: "system", subtype: "init", session_id: "s1", tools: [] });
   process.exit(0);
+} else if (scenario === "argv") {
+  // Returns the full argv so tests can assert which flags were passed.
+  emit({ type: "result", subtype: "success", result: JSON.stringify(process.argv.slice(2)), is_error: false, num_turns: 1 });
+  process.exit(0);
 } else if (scenario === "echo") {
   // Returns the -p prompt as the final answer so tests can inspect what the agent was told.
   const prompt = process.argv[process.argv.indexOf("-p") + 1];
