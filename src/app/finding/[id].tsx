@@ -137,7 +137,11 @@ export default function FindingScreen() {
                 finding={finding}
                 dragX={dragX}
                 disabled={choice !== null}
-                onChoose={(_, picked) => setChoice(picked)}
+                onChoose={(target, picked) =>
+                  picked === 'drift'
+                    ? setChoice(picked)
+                    : attempt({ finding: target, choice: picked, text: '' })
+                }
               />
             </View>
           ) : (
