@@ -65,6 +65,15 @@ export async function listFindingsByIssue(pool: PoolLike, repo: string, issue: n
   return rows.map(toStored);
 }
 
+/** #53 — how many findings are still open on one pull request. */
+export async function countOpenFindingsOnPr(pool: PoolLike, repo: string, pr: number): Promise<number> {
+  const { rows } = await pool.query(
+    "SELECT count(*)::int AS n FROM findings WHERE repo = $1 AND pr = $2 AND state = 'open'",
+    [repo, pr],
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
 /** #18 — triage a finding; returns false when the id doesn't exist. */
 export async function setFindingState(
   pool: PoolLike,

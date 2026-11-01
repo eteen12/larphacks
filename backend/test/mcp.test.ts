@@ -88,26 +88,49 @@ describe("#33 approve, dismiss and record_decision", () => {
     expect(mcp.findings.stateChanges).toEqual(http.findings.stateChanges);
   });
 
-  it("dismiss makes the same GitHub calls, state change and re-check as POST /dismiss", async () => {
+  it("dismiss makes the same state changes and status calls as POST /dismiss, with no comment", async () => {
     const http = setup();
     const mcp = setup();
-    await http.post("/findings/d15c0000-0000-4000-8000-000000000001/dismiss", { note: "5% confirmed", by: "Ethan" });
-    const res = await call(await connect(mcp), "dismiss", { finding_id: "d15c0000-0000-4000-8000-000000000001", note: "5% confirmed", by: "Ethan" });
+    for (const e of [http, mcp]) e.github.addCommit("demo-org/demo-shop", "abc123");
+    const ids = ["d15c0000-0000-4000-8000-000000000001", "d15c0000-0000-4000-8000-000000000002"];
+    for (const id of ids) await http.post(`/findings/${id}/dismiss`, { note: "5% confirmed", by: "Ethan" });
+    const client = await connect(mcp);
+    const first = await call(client, "dismiss", { finding_id: ids[0], note: "5% confirmed", by: "Ethan" });
+    expect(first.isError).toBe(false);
+    expect(mcp.github.calls).toEqual([]);
+    const last = await call(client, "dismiss", { finding_id: ids[1], note: "5% confirmed", by: "Ethan" });
 
-    expect(res.isError).toBe(false);
+    expect(last.isError).toBe(false);
+    expect(last.json.finding.state).toBe("dismissed");
     expect(mcp.github.calls).toEqual(http.github.calls);
+    expect(mcp.github.calls).toEqual([{ method: "setCommitStatus", repo: "demo-org/demo-shop", target: "abc123", state: "success", description: "All drift findings resolved" }]);
     expect(mcp.findings.stateChanges).toEqual(http.findings.stateChanges);
-    expect(mcp.checks.requests).toEqual(http.checks.requests);
   });
 
-  it("approve and dismiss default By to the MCP agent", async () => {
+  it("dismiss with the status write failing → finding dismissed, tool result carries the warning", async () => {
+    const env = setup();
+    env.github.addCommit("demo-org/demo-shop", "abc123").failNext("setCommitStatus", 500);
+    const client = await connect(env);
+    await call(client, "dismiss", { finding_id: "d15c0000-0000-4000-8000-000000000001" });
+    const orig = console.error;
+    console.error = () => {};
+    try {
+      const res = await call(client, "dismiss", { finding_id: "d15c0000-0000-4000-8000-000000000002" });
+      expect(res.isError).toBe(false);
+      expect(res.json.warning).toMatch(/status failed/);
+      expect(res.json.finding.state).toBe("dismissed");
+    } finally {
+      console.error = orig;
+    }
+  });
+
+  it("approve defaults By to the MCP agent; dismiss posts nothing", async () => {
     const env = setup();
     const client = await connect(env);
     await call(client, "approve", { finding_id: "d15c0000-0000-4000-8000-000000000001", instruction: "fix" });
     await call(client, "dismiss", { finding_id: "d15c0000-0000-4000-8000-000000000002" });
     expect((env.github.calls[1] as any).body).toContain("By: MCP agent, 2026-10-28");
-    expect((env.github.calls[3] as any).body).toContain("Decision: Dismissed, no reason given");
-    expect((env.github.calls[3] as any).body).toContain("By: MCP agent, 2026-10-28");
+    expect(env.github.calls).toHaveLength(3); // approve's reopen + two comments only
   });
 
   it.each([

@@ -1,5 +1,4 @@
 import { createApp } from "../src/app";
-import { FakeCheckRequester } from "../src/actions/checks";
 import type { ActionDeps } from "../src/actions/decisions";
 import { DEMO_REPO, fixtureFindings } from "../src/actions/fixtures";
 import { newDb } from "pg-mem";
@@ -67,6 +66,16 @@ export class RecordingDbStore implements FindingsStore {
     await this.ready;
     return this.inner.listByIssue(repo, issue);
   }
+
+  async headSha(id: string) {
+    await this.ready;
+    return this.inner.headSha(id);
+  }
+
+  async countOpenOnPr(repo: string, pr: number) {
+    await this.ready;
+    return this.inner.countOpenOnPr(repo, pr);
+  }
 }
 
 /** FINDINGS_STORE=db (the "db" vitest project) runs the same tests against the DB-backed store. */
@@ -76,8 +85,7 @@ export function setup() {
   // Issue #12 is closed (it was shipped), PR #40 is the drifted PR, #15 and #41 belong to another task.
   const github = new FakeGitHub().addIssue(REPO, 12, "closed").addIssue(REPO, 40, "open").addIssue(REPO, 15, "closed").addIssue(REPO, 41, "open");
   const findings = USE_DB ? new RecordingDbStore(fixtureFindings) : new FakeFindingsStore(fixtureFindings);
-  const checks = new FakeCheckRequester();
-  const deps: ActionDeps = { github, findings, checks, now: () => NOW };
+  const deps: ActionDeps = { github, findings, now: () => NOW };
   const app = createApp({ actions: deps, apiKey: API_KEY });
 
   async function post(path: string, body?: unknown, key: string | null = API_KEY) {
@@ -89,5 +97,5 @@ export function setup() {
     return { status: res.status, body: (await res.json()) as any };
   }
 
-  return { github, findings, checks, deps, app, post };
+  return { github, findings, deps, app, post };
 }

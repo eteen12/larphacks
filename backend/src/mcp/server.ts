@@ -65,7 +65,7 @@ export function createMcpServer(deps: ActionDeps): McpServer {
   server.registerTool(
     "dismiss",
     {
-      description: "Dismiss a finding as not drift: record the decision on its issue and request a re-check.",
+      description: "Dismiss a finding as not drift. Posts nothing on GitHub; when it was the PR's last open finding, the PR's drift-guard status turns green.",
       inputSchema: { finding_id: z.string(), note: z.string().optional(), by: z.string().optional() },
     },
     async ({ finding_id, note, by }) => toToolResult(await dismissFinding(deps, { findingId: finding_id, note, by: by ?? "MCP agent" })),

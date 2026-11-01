@@ -2,10 +2,9 @@
 // Usage (from backend/, with GITHUB_WRITE_TOKEN and DEMO_REPO set):
 //   npm run real-run -- github  --issue 12 --pr 40 --sha <head sha of PR 40>
 //   npm run real-run -- approve --issue 12 --pr 40 --instruction "Change the discount to 8%"
-//   npm run real-run -- dismiss --issue 12 --pr 40 --note "5% confirmed by the client"
+//   npm run real-run -- dismiss --issue 12 --pr 40 --note "5% confirmed by the client" --sha <head sha>
 // approve/dismiss use a throwaway finding in the in-memory store, so the findings API is not needed.
 import { parseArgs } from "node:util";
-import { FakeCheckRequester } from "../src/actions/checks";
 import { approveFinding, dismissFinding } from "../src/actions/decisions";
 import { fixtureFindings } from "../src/actions/fixtures";
 import { FakeFindingsStore } from "../src/actions/findings-store";
@@ -46,14 +45,12 @@ if (command === "github") {
   console.log(`Status list: https://github.com/${repo}/commit/${values.sha}`);
 } else if (command === "approve" || command === "dismiss") {
   const finding = { ...fixtureFindings[0]!, id: `real-run-${Date.now()}`, repo, issue, pr, state: "open" as const };
-  const checks = new FakeCheckRequester();
-  const deps = { github, findings: new FakeFindingsStore([finding]), checks };
+  const deps = { github, findings: new FakeFindingsStore([finding], values.sha ? { [finding.id]: values.sha } : {}) };
   const result =
     command === "approve"
       ? await approveFinding(deps, { findingId: finding.id, instruction: values.instruction ?? "Change the slow-season discount to 8%", by: "real-run" })
       : await dismissFinding(deps, { findingId: finding.id, note: values.note, by: "real-run" });
   console.log(JSON.stringify(result, null, 2));
-  if (command === "dismiss") console.log("Re-check requested (recorded only, #9 not wired):", checks.requests);
   if (!result.ok) process.exitCode = 1;
 } else {
   throw new Error('Command must be "github", "approve" or "dismiss"');
