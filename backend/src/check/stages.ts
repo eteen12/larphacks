@@ -4,6 +4,7 @@ import { createWorkspace, destroyWorkspace, type WorkspaceDeps } from "./workspa
 import { writeGithubContext } from "./github-context.js";
 import { agentJobPrompt, runAgent, type AgentResult } from "./agent.js";
 import { buildFindings, parseCheckOutput } from "./validate.js";
+import { saveRunFindings, type PoolLike } from "./store.js";
 
 /** #11 — clone the PR code and the vault into a per-run folder, removed when the run ends. */
 export function workspaceStage(deps: WorkspaceDeps): CheckStage {
@@ -59,6 +60,20 @@ export function validateStage(deps: {
         output = parseCheckOutput(second.finalText); // throws on second failure -> failed run
       }
       ctx.findings = buildFindings(output, ctx.job, ctx.agentResult.searches);
+    },
+  };
+}
+
+/** #17 — persist the run's findings atomically; a stale run saves nothing. */
+export function saveStage(deps: { pool: PoolLike }): CheckStage {
+  return {
+    name: "save",
+    async run(ctx) {
+      if (!ctx.findings) throw new Error("save stage needs the validate stage first");
+      const result = await saveRunFindings(deps.pool, ctx.job, ctx.findings);
+      if (result === "discarded") {
+        console.log(`save discarded: newer run already finished for ${ctx.job.repo}#${ctx.job.prNumber}`);
+      }
     },
   };
 }

@@ -1,16 +1,33 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { findLinkedTask } from "./check/linked-task.js";
 import { CheckQueue } from "./check/queue.js";
 import { createRunCheck } from "./check/run-check.js";
-import { agentStage, githubContextStage, validateStage, workspaceStage } from "./check/stages.js";
+import { agentStage, githubContextStage, saveStage, validateStage, workspaceStage } from "./check/stages.js";
 import { agentJobPrompt, runAgent } from "./check/agent.js";
+import { migrate, type PoolLike } from "./check/store.js";
 import { loadEnv } from "./env.js";
 
 const env = loadEnv();
 const checkPromptPath = fileURLToPath(new URL("../check-prompt.md", import.meta.url));
+
+// No DATABASE_URL -> save stage throws inside the run = failed run, never "no drift".
+const pool: PoolLike = env.databaseUrl
+  ? new pg.Pool({ connectionString: env.databaseUrl })
+  : {
+      query: () => Promise.reject(new Error("DATABASE_URL is not set")),
+      connect: () => Promise.reject(new Error("DATABASE_URL is not set")),
+    };
+
+if (env.databaseUrl) {
+  await migrate(pool).catch((err) => {
+    console.error("database migration failed", err);
+    process.exit(1);
+  });
+}
 
 const queue = new CheckQueue(
   createRunCheck([
@@ -27,6 +44,7 @@ const queue = new CheckQueue(
           cwd: ctx.workspace!.dir,
         }),
     }),
+    saveStage({ pool }),
   ]),
 );
 

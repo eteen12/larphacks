@@ -11,6 +11,7 @@ const JOB: CheckJob = {
   prNumber: 42,
   headSha: "abc123",
   issueNumber: 8,
+  enqueuedAt: 1000,
 };
 
 const conflictFinding = {

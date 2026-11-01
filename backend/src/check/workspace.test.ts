@@ -44,6 +44,7 @@ const job = (sha: string): CheckJob => ({
   prNumber: 1,
   headSha: sha,
   issueNumber: 7,
+  enqueuedAt: 0,
 });
 
 afterAll(async () => {

@@ -4,6 +4,8 @@ export interface CheckJob {
   prNumber: number;
   headSha: string;
   issueNumber: number;
+  /** ms epoch at enqueue time — orders runs for the stale-run discard rule. */
+  enqueuedAt: number;
 }
 
 export type RunCheck = (job: CheckJob) => Promise<void>;
@@ -21,19 +23,23 @@ export class CheckQueue {
 
   constructor(private readonly runCheck: RunCheck) {}
 
-  private prKey(job: CheckJob): string {
+  private prKey(job: Pick<CheckJob, "owner" | "repo" | "prNumber">): string {
     return `${job.owner}/${job.repo}#${job.prNumber}`;
   }
 
-  enqueue(deliveryId: string, job: CheckJob): "queued" | "duplicate" {
+  enqueue(
+    deliveryId: string,
+    job: Omit<CheckJob, "enqueuedAt"> & Partial<Pick<CheckJob, "enqueuedAt">>,
+  ): "queued" | "duplicate" {
     if (this.seenDeliveries.has(deliveryId)) return "duplicate";
     const headKey = `${this.prKey(job)}@${job.headSha}`;
     if (this.seenHeads.has(headKey)) return "duplicate";
+    const full: CheckJob = { ...job, enqueuedAt: job.enqueuedAt ?? Date.now() };
     this.seenDeliveries.add(deliveryId);
     this.seenHeads.add(headKey);
-    this.latestHead.set(this.prKey(job), job.headSha);
+    this.latestHead.set(this.prKey(full), full.headSha);
     this.chain = this.chain
-      .then(() => this.runCheck(job))
+      .then(() => this.runCheck(full))
       .catch((err) => console.error(`check failed for ${headKey}`, err));
     return "queued";
   }

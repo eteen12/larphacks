@@ -7,6 +7,7 @@ const job = (headSha: string, prNumber = 12): CheckJob => ({
   prNumber,
   headSha,
   issueNumber: 7,
+  enqueuedAt: 0,
 });
 
 describe("CheckQueue", () => {
