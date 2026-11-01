@@ -62,6 +62,13 @@ describe("findings API store", () => {
     expect(err.status).toBe(500);
   });
 
+  it("returns null for ids that would escape /findings/, without any request", async () => {
+    const { calls, doFetch } = recordingFetch(() => json(200, fixtureFindings));
+    const store = createFindingsApiStore({ baseUrl: "http://api", apiKey: "k", fetch: doFetch });
+    for (const id of ["", ".", ".."]) expect(await store.get(id)).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
   it("PATCH /findings/:id/state, throwing with the status on failure", async () => {
     let status = 200;
     const { calls, doFetch } = recordingFetch(() => json(status, {}));

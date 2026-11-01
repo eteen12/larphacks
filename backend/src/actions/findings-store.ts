@@ -74,6 +74,8 @@ export function createFindingsApiStore({ baseUrl, apiKey, fetch: doFetch = fetch
     // #18 has no GET /findings/:id yet, so a 404 there is indistinguishable from an unknown id:
     // fall back to scanning GET /findings. Keeps working unchanged once the route exists.
     async get(id) {
+      // encodeURIComponent leaves dots alone, so these would normalize to another path (".." → GET /).
+      if (id === "" || id === "." || id === "..") return null;
       const res = await call("GET", `/findings/${encodeURIComponent(id)}`);
       if (res.status === 404) return (await listAll()).find((f) => f.id === id) ?? null;
       if (!res.ok) throw new FindingsStoreError(res.status, `Findings API GET /findings/${id} failed with status ${res.status}`);
