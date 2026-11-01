@@ -1,17 +1,20 @@
+import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { findLinkedTask } from "./check/linked-task.js";
 import { CheckQueue } from "./check/queue.js";
 import { createRunCheck } from "./check/run-check.js";
-import { githubContextStage, workspaceStage } from "./check/stages.js";
+import { agentStage, githubContextStage, workspaceStage } from "./check/stages.js";
 import { loadEnv } from "./env.js";
 
 const env = loadEnv();
+const checkPromptPath = fileURLToPath(new URL("../check-prompt.md", import.meta.url));
 
 const queue = new CheckQueue(
   createRunCheck([
     workspaceStage({ githubToken: env.githubToken, vaultRepo: env.vaultRepo }),
     githubContextStage({ githubToken: env.githubToken }),
+    agentStage({ promptPath: checkPromptPath }),
   ]),
 );
 
