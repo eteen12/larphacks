@@ -46,9 +46,9 @@ describe("#32 get_drift", () => {
     const { isError, json } = await call(client, "get_drift", { repo: REPO, issue: 12 });
     expect(isError).toBe(false);
     expect(json.findings.map((f: any) => [f.id, f.state])).toEqual([
-      ["f-discount", "open"],
-      ["f-deposit", "open"],
-      ["f-old", "dismissed"],
+      ["d15c0000-0000-4000-8000-000000000001", "open"],
+      ["d15c0000-0000-4000-8000-000000000002", "open"],
+      ["d15c0000-0000-4000-8000-000000000003", "dismissed"],
     ]);
     expect(Object.keys(json.findings[0]).sort()).toEqual(
       ["id", "repo", "pr", "issue", "item", "kind", "issue_quote", "note_quote", "note_path", "note_date", "diff_line", "confidence", "searches", "state"].sort(),
@@ -78,8 +78,8 @@ describe("#33 approve, dismiss and record_decision", () => {
   it("approve makes the same GitHub calls and state change as POST /approve", async () => {
     const http = setup();
     const mcp = setup();
-    await http.post("/findings/f-discount/approve", { instruction: "Change it to 8%", by: "Ethan" });
-    const res = await call(await connect(mcp), "approve", { finding_id: "f-discount", instruction: "Change it to 8%", by: "Ethan" });
+    await http.post("/findings/d15c0000-0000-4000-8000-000000000001/approve", { instruction: "Change it to 8%", by: "Ethan" });
+    const res = await call(await connect(mcp), "approve", { finding_id: "d15c0000-0000-4000-8000-000000000001", instruction: "Change it to 8%", by: "Ethan" });
 
     expect(res.isError).toBe(false);
     expect(res.json.finding.state).toBe("approved");
@@ -91,8 +91,8 @@ describe("#33 approve, dismiss and record_decision", () => {
   it("dismiss makes the same GitHub calls, state change and re-check as POST /dismiss", async () => {
     const http = setup();
     const mcp = setup();
-    await http.post("/findings/f-discount/dismiss", { note: "5% confirmed", by: "Ethan" });
-    const res = await call(await connect(mcp), "dismiss", { finding_id: "f-discount", note: "5% confirmed", by: "Ethan" });
+    await http.post("/findings/d15c0000-0000-4000-8000-000000000001/dismiss", { note: "5% confirmed", by: "Ethan" });
+    const res = await call(await connect(mcp), "dismiss", { finding_id: "d15c0000-0000-4000-8000-000000000001", note: "5% confirmed", by: "Ethan" });
 
     expect(res.isError).toBe(false);
     expect(mcp.github.calls).toEqual(http.github.calls);
@@ -103,17 +103,17 @@ describe("#33 approve, dismiss and record_decision", () => {
   it("approve and dismiss default By to the MCP agent", async () => {
     const env = setup();
     const client = await connect(env);
-    await call(client, "approve", { finding_id: "f-discount", instruction: "fix" });
-    await call(client, "dismiss", { finding_id: "f-deposit" });
+    await call(client, "approve", { finding_id: "d15c0000-0000-4000-8000-000000000001", instruction: "fix" });
+    await call(client, "dismiss", { finding_id: "d15c0000-0000-4000-8000-000000000002" });
     expect((env.github.calls[1] as any).body).toContain("By: MCP agent, 2026-10-28");
     expect((env.github.calls[3] as any).body).toContain("Decision: Dismissed, no reason given");
     expect((env.github.calls[3] as any).body).toContain("By: MCP agent, 2026-10-28");
   });
 
   it.each([
-    ["approve", { finding_id: "f-colours", instruction: "fix" }, /^409/],
-    ["dismiss", { finding_id: "f-old" }, /^409/],
-    ["approve", { finding_id: "f-discount", instruction: "  " }, /^400/],
+    ["approve", { finding_id: "d15c0000-0000-4000-8000-000000000004", instruction: "fix" }, /^409/],
+    ["dismiss", { finding_id: "d15c0000-0000-4000-8000-000000000003" }, /^409/],
+    ["approve", { finding_id: "d15c0000-0000-4000-8000-000000000001", instruction: "  " }, /^400/],
     ["approve", { finding_id: "nope", instruction: "fix" }, /^404/],
   ])("%s %j → tool error, no writes", async (tool, args, pattern) => {
     const env = setup();
@@ -126,10 +126,10 @@ describe("#33 approve, dismiss and record_decision", () => {
   it("GitHub failure → 502 tool error and the finding stays open", async () => {
     const env = setup();
     env.github.failNext("reopenIssue", 500);
-    const res = await call(await connect(env), "approve", { finding_id: "f-discount", instruction: "fix" });
+    const res = await call(await connect(env), "approve", { finding_id: "d15c0000-0000-4000-8000-000000000001", instruction: "fix" });
     expect(res.isError).toBe(true);
     expect(res.text).toMatch(/^502/);
-    expect((await env.findings.get("f-discount"))!.state).toBe("open");
+    expect((await env.findings.get("d15c0000-0000-4000-8000-000000000001"))!.state).toBe("open");
   });
 
   it("record_decision posts the decision format without a finding", async () => {

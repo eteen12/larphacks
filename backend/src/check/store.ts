@@ -42,7 +42,27 @@ export async function listFindings(pool: PoolLike, state?: string): Promise<Stor
      ORDER BY created_at DESC`,
     [state ?? null],
   );
-  return rows.map((r) => ({ ...r, searches: r.searches ?? [] }) as unknown as StoredFinding);
+  return rows.map(toStored);
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const toStored = (r: Record<string, unknown>) => ({ ...r, searches: r.searches ?? [] }) as unknown as StoredFinding;
+
+/** #51 — one finding by id, or null. A non-uuid id can't exist (and would make Postgres throw on the cast). */
+export async function getFindingById(pool: PoolLike, id: string): Promise<StoredFinding | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await pool.query(`SELECT ${FINDING_COLUMNS.join(", ")} FROM findings WHERE id = $1`, [id]);
+  return rows[0] ? toStored(rows[0]) : null;
+}
+
+/** #51 — every finding for one issue, newest first. */
+export async function listFindingsByIssue(pool: PoolLike, repo: string, issue: number): Promise<StoredFinding[]> {
+  const { rows } = await pool.query(
+    `SELECT ${FINDING_COLUMNS.join(", ")} FROM findings WHERE repo = $1 AND issue = $2 ORDER BY created_at DESC`,
+    [repo, issue],
+  );
+  return rows.map(toStored);
 }
 
 /** #18 — triage a finding; returns false when the id doesn't exist. */
@@ -51,6 +71,7 @@ export async function setFindingState(
   id: string,
   state: "approved" | "dismissed",
 ): Promise<boolean> {
+  if (!UUID.test(id)) return false;
   const { rowCount } = await pool.query("UPDATE findings SET state = $2 WHERE id = $1", [id, state]);
   return (rowCount ?? 0) > 0;
 }
