@@ -65,15 +65,6 @@ export function FindingCard({ finding, onChoose, dragX, disabled }: Props) {
   const [cardWidth, setCardWidth] = useState(0);
   const reduceMotion = useReducedMotion();
 
-  // Buttons run the same exit as a full swipe.
-  const choose = (choice: Choice) => {
-    if (disabled) return;
-    const sign = choice === 'drift' ? 1 : -1;
-    x.value = withTiming(sign * screenWidth * 1.5, { duration: 200 }, () =>
-      scheduleOnRN(onChoose, finding, choice),
-    );
-  };
-
   const pan = usePanGesture({
     enabled: !disabled,
     activeOffsetX: [-10, 10],
@@ -183,28 +174,6 @@ export function FindingCard({ finding, onChoose, dragX, disabled }: Props) {
             {Math.round(finding.confidence * 100)}% confident
           </ThemedText>
 
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Not drift"
-              disabled={disabled}
-              onPress={() => choose('not_drift')}
-              style={[styles.action, { backgroundColor: NOT_DRIFT_COLOR }, disabled && styles.disabled]}>
-              <ThemedText type="smallBold" style={styles.white}>
-                Not drift
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Drift"
-              disabled={disabled}
-              onPress={() => choose('drift')}
-              style={[styles.action, { backgroundColor: DRIFT_COLOR }, disabled && styles.disabled]}>
-              <ThemedText type="smallBold" style={styles.white}>
-                Drift
-              </ThemedText>
-            </Pressable>
-          </View>
         </ThemedView>
       </Animated.View>
     </GestureDetector>
@@ -221,8 +190,8 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   item: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 28,
+    lineHeight: 34,
   },
   field: {
     gap: Spacing.one,
@@ -251,20 +220,6 @@ const styles = StyleSheet.create({
   notDriftPanel: {
     backgroundColor: NOT_DRIFT_COLOR,
     alignItems: 'flex-start',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-    marginTop: Spacing.two,
-  },
-  action: {
-    flex: 1,
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-  },
-  disabled: {
-    opacity: 0.4,
   },
   white: {
     color: '#ffffff',
