@@ -32,7 +32,7 @@ Every pull request, checked against what your client actually said.
 
 ## The problem
 
-I run an agency. Clients tell us things on calls, it all goes into our Obsidian notes, and then a few weeks later:
+I work at a startup. Clients tell us things on calls, it all goes into our Obsidian notes, and then a few weeks later:
 
 - the **spec on GitHub** says one thing,
 - the **code** says another,
