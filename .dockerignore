@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+.git
+.expo
+**/dist
+.env*
+!*.env.example
+/src
+/assets
+/scripts
+*.md
