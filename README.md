@@ -22,6 +22,10 @@ Every pull request, checked against what your client actually said.
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)
 
+<br><br>
+
+<img src="docs/demo/drift-guard-demo.gif" alt="Drift Guard demo: a drift card on the phone, swipe right, Claude fixes the PR and the check turns green" width="900">
+
 </div>
 
 ---

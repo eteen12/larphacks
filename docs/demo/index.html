@@ -1,0 +1,231 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Drift Guard demo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:720px;overflow:hidden;background:#05070b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;color:#e6edf3}
+#stage{position:absolute;inset:0;background:radial-gradient(900px 500px at 70% 30%,#101826,#05070b)}
+#strip{position:absolute;left:0;right:0;top:0;height:42px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:15px;color:#9fb0c3;letter-spacing:.2px;border-bottom:1px solid #141b26}
+#strip b{color:#fff}
+#strip i{width:9px;height:9px;border-radius:50%;background:#16a34a;display:inline-block}
+/* phone */
+#phone{position:absolute;left:34px;top:54px;width:310px;height:618px;border-radius:46px;background:#15171c;border:2px solid #2b2f38;box-shadow:0 20px 60px #000a;padding:10px}
+#screen{position:relative;width:100%;height:100%;border-radius:37px;background:#000;overflow:hidden;color:#fff}
+#notch{position:absolute;top:9px;left:50%;margin-left:-45px;width:90px;height:24px;border-radius:14px;background:#000;z-index:30;border:1px solid #1a1a1a}
+#sbar{position:absolute;top:12px;left:24px;font-size:12px;font-weight:600;z-index:29}
+#hdr{position:absolute;top:52px;left:18px;font-size:26px;font-weight:700}
+#hsub{position:absolute;top:86px;left:18px;font-size:12px;color:#b0b4ba}
+#empty{position:absolute;top:250px;left:0;right:0;text-align:center;font-size:15px;color:#b0b4ba}
+#cardwrap{position:absolute;left:14px;top:118px;width:262px}
+#panel{position:absolute;top:0;bottom:0;width:262px;left:-278px;background:#16a34a;border-radius:20px;padding:14px;text-align:right;font-weight:700;font-size:13px}
+#panel big{display:block;font-size:24px}
+#card{position:relative;background:#212225;border-radius:20px;padding:16px 15px 14px}
+.meta{font-size:11px;font-weight:700;color:#b0b4ba}
+.item{font-size:24px;font-weight:600;margin:5px 0 12px;line-height:1.1}
+.lab{font-size:11px;font-weight:700;color:#b0b4ba;margin-bottom:3px;text-transform:none}
+.fld{background:#2e3135;border-radius:10px;padding:9px 10px;margin-bottom:9px}
+.fld .q{font-size:13px;line-height:1.3}
+.fld .s{font-size:11px;color:#b0b4ba;margin-top:4px}
+.fld code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+.conf{font-size:11px;color:#b0b4ba}
+#stamp{position:absolute;top:150px;left:60px;border:4px solid #22c55e;color:#22c55e;font-weight:900;font-size:28px;padding:0 8px;border-radius:8px;transform:rotate(-14deg);letter-spacing:2px;background:#0008}
+#btns{position:absolute;left:14px;right:14px;bottom:30px;display:flex;gap:10px}
+#btns div{flex:1;text-align:center;padding:13px 0;border-radius:16px;font-weight:700;font-size:15px}
+#bn{background:#6b7280}#bd{background:#16a34a}
+#banner{position:absolute;left:8px;right:8px;top:0;height:62px;border-radius:20px;background:#2a2c31ee;border:1px solid #3a3d44;z-index:25;padding:10px 14px;box-shadow:0 8px 24px #000a}
+#banner .a{font-size:11px;color:#b0b4ba;font-weight:600}
+#banner .b{font-size:14px;font-weight:600;margin-top:3px}
+#dim{position:absolute;inset:0;background:#000;z-index:18}
+#sheet{position:absolute;left:0;right:0;bottom:0;height:300px;background:#1c1d20;border-radius:26px 26px 0 0;padding:20px 18px;z-index:20}
+#sheet h3{font-size:19px;margin-bottom:12px}
+#ta{height:96px;background:#2e3135;border-radius:12px;padding:11px;font-size:15px;line-height:1.35;border:1px solid #3b82f6}
+#send{margin-top:14px;background:#2f81f7;border-radius:14px;text-align:center;padding:13px 0;font-weight:700;font-size:15px}
+#finger{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:#ffffff55;border:2px solid #fff9;z-index:40;pointer-events:none}
+/* github window */
+#win{position:absolute;left:372px;top:54px;width:886px;height:618px;border-radius:12px;background:#0d1117;border:1px solid #30363d;box-shadow:0 20px 60px #000a;overflow:hidden}
+#chrome{height:34px;background:#161b22;border-bottom:1px solid #30363d;display:flex;align-items:center;padding:0 12px;gap:7px}
+#chrome span.d{width:11px;height:11px;border-radius:50%}
+#url{margin-left:14px;flex:1;max-width:520px;height:22px;border-radius:11px;background:#0d1117;border:1px solid #30363d;font-size:12px;color:#8b949e;display:flex;align-items:center;padding:0 12px}
+#prh{padding:12px 22px 0;border-bottom:1px solid #30363d;background:#0d1117}
+#prh h1{font-size:22px;font-weight:400;line-height:1.2}
+#prh h1 span{color:#8b949e}
+#prh .row{display:flex;align-items:center;gap:8px;margin:8px 0 12px;font-size:13px;color:#8b949e}
+.badge{background:#238636;color:#fff;font-weight:600;border-radius:2em;padding:4px 11px;font-size:12px}
+.tabs{display:flex;gap:20px;font-size:13px;color:#e6edf3}.tabs div{padding:6px 2px 9px}.tabs .on{border-bottom:2px solid #f78166;font-weight:600}
+.tabs em{font-style:normal;background:#6e768166;border-radius:2em;padding:0 6px;font-size:11px;margin-left:4px}
+#scroll{position:absolute;top:112px;left:0;right:0;bottom:0;overflow:hidden}
+#content{padding:16px 22px 16px 22px;position:relative}
+.it{overflow:hidden}
+.pad{padding-bottom:10px}
+.cmt{display:flex;gap:10px}
+.av{flex:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff}
+.box{flex:1;border:1px solid #30363d;border-radius:6px;overflow:hidden;min-width:0}
+.box.bot{border-color:#30363d}
+.bh{background:#161b22;border-bottom:1px solid #30363d;padding:7px 12px;font-size:12.5px;color:#8b949e;display:flex;gap:7px;align-items:center}
+.bh b{color:#e6edf3}
+.tag{border:1px solid #30363d;border-radius:2em;padding:0 7px;font-size:11px;color:#8b949e}
+.bb{padding:10px 12px;font-size:13px;line-height:1.45}
+.bb p{margin:3px 0}
+.bb .mut{color:#8b949e}
+.bb .mention{color:#58a6ff;background:#388bfd1a;border-radius:4px;padding:0 3px}
+.bq{border-left:3px solid #3d444d;padding:2px 10px;color:#9da7b3;margin:6px 0}
+.diff{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;background:#12261e;color:#7ee787;border-radius:5px;padding:4px 8px;margin-top:4px;display:inline-block}
+code.i{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#6e76811a;padding:1px 5px;border-radius:5px}
+.ev{display:flex;align-items:center;gap:10px;font-size:12.5px;color:#8b949e;margin-left:6px;position:relative}
+.ev .ic{width:26px;height:26px;border-radius:50%;background:#21262d;border:2px solid #0d1117;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:12px}
+.ev b{color:#e6edf3}
+.ev code{font-family:ui-monospace,Menlo,monospace;color:#8b949e}
+#thread{position:absolute;left:37px;top:0;width:2px;background:#21262d}
+.merge{border:1px solid #30363d;border-radius:6px;overflow:hidden}
+.mr{display:flex;align-items:center;gap:11px;padding:11px 14px}
+.mr+.mr{border-top:1px solid #30363d}
+.sic{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px}
+.mt{font-size:14px;font-weight:600}.ms{font-size:12.5px;color:#8b949e}
+.mbtn{margin-left:auto;border-radius:6px;padding:5px 14px;font-size:13px;font-weight:600;color:#fff}
+#cap{position:absolute;left:0;right:0;bottom:12px;text-align:center}
+#cap span{display:inline-block;background:#0f1722;border:1px solid #2b3a52;border-radius:2em;padding:7px 20px;font-size:16px;color:#e6edf3;font-weight:600}
+#cap span em{font-style:normal;color:#3fb950}
+</style></head><body>
+<div id="stage">
+<div id="strip"><i></i><b>Drift Guard</b> &mdash; every PR checked against what the client actually said</div>
+
+<div id="phone"><div id="screen">
+  <div id="notch"></div><div id="sbar">9:41</div>
+  <div id="hdr">Inbox</div><div id="hsub">Drift Guard</div>
+  <div id="empty">No drift. Nice.</div>
+  <div id="cardwrap">
+    <div id="panel"><big>&#10003;</big>Drift</div>
+    <div id="card">
+      <div class="meta">PR #30 &middot; Issue #4</div>
+      <div class="item">Minimum job charge</div>
+      <div class="fld"><div class="lab">Client said</div><div class="q">&ldquo;And the minimum stays at fifteen hundred, quotes still good for thirty days.&rdquo;</div><div class="s">Dana Whitfield &middot; Oct 28 pricing review</div></div>
+      <div class="fld"><div class="lab">Code does</div><code>minimumJobCharge: 1000</code></div>
+      <div class="conf">Conflict &middot; 95% confident</div>
+      <div id="stamp">DRIFT</div>
+    </div>
+  </div>
+  <div id="btns"><div id="bn">Not drift</div><div id="bd">Drift</div></div>
+  <div id="dim"></div>
+  <div id="sheet"><h3>What should change?</h3><div id="ta"></div><div id="send">Send</div></div>
+  <div id="banner"><div class="a">DRIFT GUARD &middot; now</div><div class="b">Drift Guard &middot; 1 new drift finding</div></div>
+  <div id="finger"></div>
+</div></div>
+
+<div id="win">
+  <div id="chrome"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><div id="url">github.com/eteen12/larphacks-demo/pull/30</div></div>
+  <div id="prh">
+    <h1>Lower the minimum job charge to $1,000 <span>#30</span></h1>
+    <div class="row"><span class="badge">Open</span><span><b style="color:#e6edf3">eteen12</b> wants to merge 1 commit into <code class="i">main</code> from <code class="i">try/minimum-1000</code></span></div>
+    
+  </div>
+  <div id="scroll"><div id="content"><div id="thread"></div>
+    <div class="it" id="i_dg"><div class="pad"><div class="cmt"><div class="av" style="background:#8957e5">D</div><div class="box bot">
+      <div class="bh"><b>drift-guard</b><span class="tag">Bot</span><span>commented</span></div>
+      <div class="bb">
+        <div id="dg_f">
+          <p><b>1 drift finding</b></p>
+          <p><b>Minimum job charge</b> <span class="mut">(conflict, 95%)</span></p>
+          <p><span class="mut">Client said:</span> Dana, Oct 28 pricing review: &ldquo;the minimum stays at fifteen hundred&rdquo;</p>
+          <p><span class="mut">Code:</span> <span class="diff">+ minimumJobCharge: 1000,</span></p>
+        </div>
+        <div id="dg_r" style="color:#3fb950;font-weight:600">&#10003; No drift found.</div>
+      </div></div></div></div></div>
+    <div class="it" id="i_me"><div class="pad"><div class="cmt"><div class="av" style="background:#2f81f7">e</div><div class="box">
+      <div class="bh"><b>eteen12</b><span>commented</span></div>
+      <div class="bb" id="me_b" style="padding-top:0;padding-bottom:0"><div style="padding:10px 0">
+        <p><span class="mention">@claude</span> Change minimum charge to 1500</p>
+        <div class="bq" id="me_q" style="overflow:hidden"><div>Minimum job charge &middot; Client said: &ldquo;the minimum stays at fifteen hundred&rdquo; &mdash; Dana, Oct 28 pricing review</div>
+        <div>Issue: MR &middot; Enforce the minimum job charge #4</div>
+        <div><span class="diff">+ minimumJobCharge: 1000,</span></div></div>
+      </div></div></div></div></div></div>
+    <div class="it" id="i_mn"><div class="pad"><div class="ev"><div class="ic">&#8599;</div><span><b>eteen12</b> mentioned this pull request &middot; <b>MR &middot; Enforce the minimum job charge #4</b></span></div></div></div>
+    <div class="it" id="i_cl"><div class="pad"><div class="cmt"><div class="av" style="background:#d97757">C</div><div class="box">
+      <div class="bh"><b>claude</b><span class="tag">Bot</span><span>commented</span></div>
+      <div class="bb" id="cl_b"></div></div></div></div></div>
+    <div class="it" id="i_cm"><div class="pad"><div class="ev"><div class="ic">&#9679;</div><span><b>Restore minimum job charge to $1,500</b> &middot; <code>6582635</code></span></div></div></div>
+    <div class="it" id="i_mg"><div class="merge">
+      <div class="mr"><div class="sic" id="sic" style="background:#da3633">&#215;</div><div><div class="mt" id="mt">All checks have failed</div><div class="ms" id="ms">1 failing check &mdash; drift-guard: 1 drift finding</div></div></div>
+      <div class="mr"><div class="mbtn" id="mbtn" style="margin-left:0;background:#2d333b">Merge pull request</div><span class="ms" id="mm">Merging is blocked</span></div>
+    </div></div>
+  </div></div>
+</div>
+<div id="cap"><span>Caught in 25s &middot; fixed by <em>Claude</em> &middot; verified</span></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const cl=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const pr=(t,a,b)=>cl((t-a)/(b-a));
+const eo=p=>1-Math.pow(1-p,3), eio=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+const FULL="Change minimum charge to 1500";
+const A={dg:0,me:11000,mn:12400,cl:14000,cm:16400,mg:0};
+let nat={};
+function item(id,t0,dur){ // reveal with growing height
+  const e=$(id),p=eo(pr(T,t0,t0+dur)); e.style.display='block'; e.style.maxHeight='none'; const h=e.offsetHeight;
+  if(p<=0){e.style.display='none';return 0}
+  e.style.display='block'; e.style.maxHeight=(p*h)+'px'; e.style.opacity=p; return h*p;
+}
+let T=0;
+function setTime(t){
+  T=t;
+  // ---- GitHub ----
+  const tres=cl(pr(t,18000,18700));
+  const dgf=$('dg_f'); dgf.style.maxHeight='none'; dgf.style.opacity=1;
+  if(!dgf._h) dgf._h=dgf.offsetHeight;
+  dgf.style.maxHeight=((1-eio(tres))*dgf._h)+'px'; dgf.style.overflow='hidden'; dgf.style.opacity=1-tres;
+  const dr=$('dg_r'); dr.style.display=tres>0?'block':'none'; dr.style.opacity=pr(t,18300,18900);
+  if(tres>0){dgf.parentNode.style.paddingTop=tres>=1?'':'' }
+  // claude comment states
+  const cb=$('cl_b');
+  if(t<15600) cb.innerHTML='<p><b>Claude Code is working&hellip;</b></p><p class="mut">Editing <code class="i">src/pricing-config.ts</code>'+['','.','..','...'][Math.floor(t/350)%4]+'</p>';
+  else cb.innerHTML='<p><b>Claude finished <span class="mention">@eteen12</span>&rsquo;s task in 13s</b></p><p style="color:#3fb950;font-weight:600">Done &#10003;</p><p>Set <code class="i">minimumJobCharge</code> to <code class="i">1500</code> in <code class="i">src/pricing-config.ts</code> &hellip;</p>';
+  const mq=$('me_q'); mq.style.maxHeight='none'; mq.style.opacity=1; if(!mq._h) mq._h=mq.offsetHeight; const mc=eio(pr(t,14300,14800)); mq.style.maxHeight=((1-mc)*mq._h)+'px'; mq.style.opacity=1-mc; mq.style.margin=mc>=1?'0':'6px 0';
+  const mb=$('me_b'); mb.style.maxHeight='none'; if(!mb._h) mb._h=mb.offsetHeight; const mk=eio(pr(t,17800,18400)); mb.style.maxHeight=((1-mk)*mb._h)+'px'; mb.style.opacity=1-mk; $('me_b').parentNode.querySelector('.bh').style.borderBottomColor=mk>=1?'transparent':'#30363d';
+  item('i_dg',0,1); $('i_dg').style.display='block'; $('i_dg').style.maxHeight='none';
+  item('i_me',A.me,600); item('i_mn',A.mn,500); item('i_cl',A.cl,600); item('i_cm',A.cm,500);
+  $('i_mg').style.display='block';
+  // merge box
+  const ok=t>=18000; $('sic').style.background=ok?'#238636':'#da3633'; $('sic').innerHTML=ok?'&#10003;':'&#215;';
+  $('mt').textContent=ok?'All checks have passed':'All checks have failed';
+  $('ms').innerHTML=ok?'1 successful check &mdash; drift-guard: No drift found':'1 failing check &mdash; drift-guard: 1 drift finding';
+  $('mbtn').style.background=ok?'#238636':'#2d333b'; $('mm').textContent=ok?'This branch has no conflicts with the base branch':'Merging is blocked';
+  
+  // scroll
+  const c=$('content'), sv=$('scroll').clientHeight, ch=c.offsetHeight;
+  c.style.transform='translateY('+(-Math.max(0,ch-sv))+'px)'; $('thread').style.height=(ch-$('i_mg').offsetHeight-16)+'px';
+  // ---- Phone ----
+  const cw=$('cardwrap'), cd=$('card');
+  let x=0,rot=0,op=1,sc=1,fx=null,fy=null,fo=0,fs=1;
+  const cardIn=eo(pr(t,3500,4100));
+  if(t<3500) op=0; else op=cardIn;
+  sc=.92+.08*cardIn;
+  const drag=eio(pr(t,5000,6400)); const fly=eo(pr(t,6400,7000));
+  x=drag*150+fly*480; rot=(drag*9+fly*10);
+  const stamp=cl(x/70);
+  if(t>=7000) op=0;
+  cw.style.opacity=op; cw.style.transform='translateX('+x+'px) translateY('+((1-cardIn)*24)+'px) rotate('+rot+'deg) scale('+sc+')';
+  $('panel').style.opacity=cl(x/40);
+  $('stamp').style.opacity=stamp; $('stamp').style.transform='rotate(-14deg) scale('+(0.8+0.2*stamp)+')';
+  $('btns').style.opacity=(t>=3500&&t<7000)?cardIn:0;
+  $('empty').style.opacity=(t<3400||t>=10300)?1:0;
+  // banner
+  const bIn=eo(pr(t,3000,3450)), bOut=eio(pr(t,4400,4800));
+  $('banner').style.transform='translateY('+(-80+ (bIn-bOut)*(80+44)) +'px)';
+  // sheet
+  const sIn=eo(pr(t,7200,7700)), sOut=eio(pr(t,10250,10650));
+  const sh=sIn-sOut; $('sheet').style.transform='translateY('+((1-sh)*320)+'px)';
+  $('dim').style.opacity=.55*sh; $('dim').style.display=sh>0?'block':'none'; $('sheet').style.display=sh>0?'block':'none';
+  const n=Math.floor(cl(pr(t,8000,9800))*FULL.length);
+  $('ta').innerHTML=FULL.slice(0,n)+((t>=7700&&t<10250&&Math.floor(t/400)%2==0)?'<span style="border-left:2px solid #fff;margin-left:1px"></span>':'');
+  const sendPress=pr(t,10000,10180)*(1-pr(t,10180,10300));
+  $('send').style.transform='scale('+(1-.06*sendPress)+')'; $('send').style.filter='brightness('+(1+.3*sendPress)+')';
+  // finger: card drag then send tap
+  const fi=document.getElementById('finger');
+  if(t>=4800&&t<7000){ const a=cl(pr(t,4800,5000)), b=1-pr(t,6700,7000);
+    fo=Math.min(a,b); fx=14+131+x; fy=360; fs=1-.12*(drag>0&&drag<1?1:0);}
+  else if(t>=9600&&t<10500){ const a=pr(t,9600,9900),b=1-pr(t,10300,10500);
+    fo=Math.min(a,b); fx=150+ (1-eo(a))*40; fy=(1-eo(a))*40+ 500; fs=1-.2*sendPress; fy=Math.max(fy,498);}
+  fi.style.opacity=fo; if(fx!==null){fi.style.left=fx+'px';fi.style.top=fy+'px';fi.style.transform='scale('+fs+')';}
+  // caption
+  $('cap').style.opacity=eo(pr(t,19500,20000));
+}
+window.setTime=setTime; setTime(0);
+</script></body></html>
