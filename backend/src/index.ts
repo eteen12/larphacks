@@ -13,14 +13,24 @@ import { statusStage, statusStartStage } from "./check/status.js";
 import { migrate, type PoolLike } from "./check/store.js";
 import { createGitHub, type GitHubWriter } from "./actions/github.js";
 import { createDbFindingsStore } from "./actions/findings-store.js";
-import { loadEnv } from "./env.js";
+import { ConfigError, loadEnv, postgresConfig, type Env } from "./env.js";
 
-const env = loadEnv();
+let env: Env;
+try {
+  const loaded = loadEnv();
+  env = loaded.env;
+  if (loaded.warning) console.warn(loaded.warning);
+} catch (err) {
+  if (!(err instanceof ConfigError)) throw err;
+  console.error(`${err.message}\nSet it in the environment (see backend/.env.example) and restart.`);
+  process.exit(1);
+}
 const checkPromptPath = fileURLToPath(new URL("../check-prompt.md", import.meta.url));
 
-// No DATABASE_URL -> save stage throws inside the run = failed run, never "no drift".
+// Production always has a DATABASE_URL (loadEnv refuses otherwise). Locally, without one the
+// save stage throws inside the run = failed run, never "no drift".
 const pool: PoolLike = env.databaseUrl
-  ? new pg.Pool({ connectionString: env.databaseUrl })
+  ? new pg.Pool(postgresConfig(env.databaseUrl))
   : {
       query: () => Promise.reject(new Error("DATABASE_URL is not set")),
       connect: () => Promise.reject(new Error("DATABASE_URL is not set")),
@@ -33,8 +43,8 @@ if (env.databaseUrl) {
   });
 }
 
-// Write token falls back to the read token; with neither, the writer throws on
-// use and reporters log the failure without crashing the run.
+// Local dev only: the write token may fall back to the read token, and with neither the writer
+// throws on use. In production loadEnv has already required GITHUB_WRITE_TOKEN.
 const writeToken = env.githubWriteToken || env.githubToken;
 const github: GitHubWriter = writeToken
   ? createGitHub({ token: writeToken })
@@ -49,7 +59,7 @@ const queue = new CheckQueue(
   createRunCheck([
     statusStartStage({ github }),
     workspaceStage({ githubToken: env.githubToken, vaultRepo: env.vaultRepo }),
-    githubContextStage({ githubToken: env.githubToken }),
+    githubContextStage({ githubToken: env.githubToken, pool }),
     agentStage({ promptPath: checkPromptPath }),
     validateStage({
       rerunWithError: async (ctx, error) =>
@@ -67,8 +77,6 @@ const queue = new CheckQueue(
     statusStage({ github }),
   ]),
 );
-
-if (!env.findingsApiKey) throw new Error("FINDINGS_API_KEY is not set");
 
 // Approve/dismiss/MCP read and update findings straight from the database.
 const findingsStore = createDbFindingsStore(pool);

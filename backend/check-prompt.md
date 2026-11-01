@@ -20,6 +20,9 @@ Do this, in order:
    comment records it as decided after the notes). Only `conflicts` and `no_source` items
    become findings.
 
+Rule: anything matching an entry in `github/decisions.md` is already settled (a reviewer
+dismissed it). Label it `already_settled` and do not report it as a finding.
+
 Your final answer must be ONLY this JSON, no prose around it:
 
 ```json
