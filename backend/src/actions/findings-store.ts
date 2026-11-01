@@ -1,6 +1,7 @@
-// How #4 reads and updates findings. The HTTP store calls the findings API (#18);
-// the fake is an in-memory stand-in until #18 lands.
+// How approve, dismiss and MCP read and update findings: the DB store (running server) or an in-memory fake (tests).
+import type { StoredFinding } from "../../../shared/finding.js";
 import type { Finding, FindingState } from "../finding";
+import { getFindingById, listFindingsByIssue, setFindingState, type PoolLike } from "../check/store.js";
 
 export interface FindingsStore {
   get(id: string): Promise<Finding | null>;
@@ -40,7 +41,7 @@ export class FakeFindingsStore implements FindingsStore {
   async setState(id: string, state: Exclude<FindingState, "open">) {
     if (this.failSetState > 0) {
       this.failSetState--;
-      throw new FindingsStoreError(500, "Findings API PATCH failed with status 500 (fake)");
+      throw new FindingsStoreError(500, "Findings store write failed (fake)");
     }
     const f = this.findings.get(id);
     if (!f) throw new FindingsStoreError(404, `Finding ${id} not found`);
@@ -53,40 +54,23 @@ export class FakeFindingsStore implements FindingsStore {
   }
 }
 
-export function createFindingsApiStore({ baseUrl, apiKey, fetch: doFetch = fetch }: { baseUrl: string; apiKey: string; fetch?: typeof fetch }): FindingsStore {
-  async function call(method: string, path: string, body?: unknown): Promise<Response> {
-    const res = await doFetch(baseUrl.replace(/\/$/, "") + path, {
-      method,
-      headers: { "x-api-key": apiKey, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    return res;
-  }
+/** Drop run provenance (head_sha, created_at): approve/dismiss/MCP hand out the shared Finding shape. */
+function toFinding({ head_sha: _sha, created_at: _at, ...finding }: StoredFinding): Finding {
+  return finding;
+}
 
-  async function listAll(): Promise<Finding[]> {
-    const res = await call("GET", "/findings");
-    if (!res.ok) throw new FindingsStoreError(res.status, `Findings API GET /findings failed with status ${res.status}`);
-    const body = (await res.json()) as Finding[] | { findings: Finding[] };
-    return Array.isArray(body) ? body : body.findings;
-  }
-
+/** The running server's store: reads and updates the findings table directly, no HTTP. */
+export function createDbFindingsStore(pool: PoolLike): FindingsStore {
   return {
-    // #18 has no GET /findings/:id yet, so a 404 there is indistinguishable from an unknown id:
-    // fall back to scanning GET /findings. Keeps working unchanged once the route exists.
     async get(id) {
-      // encodeURIComponent leaves dots alone, so these would normalize to another path (".." → GET /).
-      if (id === "" || id === "." || id === "..") return null;
-      const res = await call("GET", `/findings/${encodeURIComponent(id)}`);
-      if (res.status === 404) return (await listAll()).find((f) => f.id === id) ?? null;
-      if (!res.ok) throw new FindingsStoreError(res.status, `Findings API GET /findings/${id} failed with status ${res.status}`);
-      return (await res.json()) as Finding;
+      const row = await getFindingById(pool, id);
+      return row && toFinding(row);
     },
     async setState(id, state) {
-      const res = await call("PATCH", `/findings/${encodeURIComponent(id)}/state`, { state });
-      if (!res.ok) throw new FindingsStoreError(res.status, `Findings API PATCH /findings/${id}/state failed with status ${res.status}`);
+      if (!(await setFindingState(pool, id, state))) throw new FindingsStoreError(404, `Finding ${id} not found`);
     },
     async listByIssue(repo, issue) {
-      return (await listAll()).filter((f) => f.repo === repo && f.issue === issue);
+      return (await listFindingsByIssue(pool, repo, issue)).map(toFinding);
     },
   };
 }

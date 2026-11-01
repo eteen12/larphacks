@@ -5,7 +5,7 @@ export const DEMO_REPO = "demo-org/demo-shop";
 
 export const fixtureFindings: Finding[] = [
   {
-    id: "f-discount",
+    id: "d15c0000-0000-4000-8000-000000000001",
     repo: DEMO_REPO,
     pr: 40,
     issue: 12,
@@ -21,7 +21,7 @@ export const fixtureFindings: Finding[] = [
     state: "open",
   },
   {
-    id: "f-deposit",
+    id: "d15c0000-0000-4000-8000-000000000002",
     repo: DEMO_REPO,
     pr: 40,
     issue: 12,
@@ -37,7 +37,7 @@ export const fixtureFindings: Finding[] = [
     state: "open",
   },
   {
-    id: "f-old",
+    id: "d15c0000-0000-4000-8000-000000000003",
     repo: DEMO_REPO,
     pr: 38,
     issue: 12,
@@ -53,7 +53,7 @@ export const fixtureFindings: Finding[] = [
     state: "dismissed",
   },
   {
-    id: "f-colours",
+    id: "d15c0000-0000-4000-8000-000000000004",
     repo: DEMO_REPO,
     pr: 41,
     issue: 15,

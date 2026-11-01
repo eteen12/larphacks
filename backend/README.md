@@ -24,6 +24,6 @@ FINDINGS_API_KEY=... GITHUB_WRITE_TOKEN=... npm start   # :8787
 
 ## Integration notes (for Ethan)
 - `src/finding.ts` is a local copy of the #1 shape; swap for `shared/finding.ts`.
-- Set `FINDINGS_API_URL` and `CHECKS_API_URL` to switch from the in-memory fakes to #18 and #9. Both send `x-api-key: FINDINGS_API_KEY`.
+- Approve, dismiss and MCP read and update findings straight from Postgres (`createDbFindingsStore`); there is no findings URL to configure. Set `CHECKS_API_URL` to switch the re-check from the in-memory fake to #9.
 - `createApp(deps, { apiKey })` in `src/app.ts` mounts the routes and `/mcp`; #7's app can `app.route("/", ...)` the same pieces.
 - Connect Claude Code: `claude mcp add --transport http drift-guard https://<host>/mcp --header "x-api-key: <key>"`.
