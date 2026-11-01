@@ -10,6 +10,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   interpolateColor,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -34,6 +35,8 @@ import type { Choice } from '@/lib/swipe';
 import type { Finding } from '@/types/finding';
 
 const SHEET_DELAY_MS = 150;
+const TINT_RANGE = 150;
+const TINT_FADE_MS = 450;
 
 type Decision = { finding: Finding; choice: Choice; text: string };
 
@@ -56,10 +59,24 @@ export default function CardScreen() {
 
   const dragX = useSharedValue(0);
   const background = theme.background;
+  // The tint follows the drag. When the next card resets the drag to zero, it fades out instead.
+  const tintX = useSharedValue(0);
+  useAnimatedReaction(
+    () => dragX.value,
+    (current, previous) => {
+      if (Math.abs(current) < 1 && Math.abs(previous ?? 0) > TINT_RANGE) {
+        // Start from the capped value, or most of the fade would run while the color is already maxed out.
+        tintX.value = Math.sign(previous ?? 0) * TINT_RANGE;
+        tintX.value = withTiming(0, { duration: TINT_FADE_MS });
+      } else {
+        tintX.value = current;
+      }
+    },
+  );
   const tintStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
-      dragX.value,
-      [-150, 0, 150],
+      tintX.value,
+      [-TINT_RANGE, 0, TINT_RANGE],
       [tints.notDrift, background, tints.drift],
     ),
   }));

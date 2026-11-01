@@ -35,7 +35,10 @@ const PANEL_GAP = 16;
 export const EXIT_MS = 250;
 
 // The colored panel trails the card by about a card width, so the exit has to clear both.
-export const exitDistance = (screenWidth: number) => screenWidth * 2.2;
+export function exitDistance(screenWidth: number) {
+  'worklet';
+  return screenWidth * 2.2;
+}
 
 function Field({ label, text, sub }: { label: string; text: string; sub?: string }) {
   const [expanded, setExpanded] = useState(false);
