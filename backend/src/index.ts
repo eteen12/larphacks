@@ -12,7 +12,6 @@ import { commentStage } from "./check/pr-comment.js";
 import { statusStage, statusStartStage } from "./check/status.js";
 import { migrate, type PoolLike } from "./check/store.js";
 import { createGitHub, type GitHubWriter } from "./actions/github.js";
-import { FakeCheckRequester } from "./actions/checks.js";
 import { createDbFindingsStore } from "./actions/findings-store.js";
 import { ConfigError, loadEnv, postgresConfig, type Env } from "./env.js";
 
@@ -82,10 +81,6 @@ const queue = new CheckQueue(
 // Approve/dismiss/MCP read and update findings straight from the database.
 const findingsStore = createDbFindingsStore(pool);
 
-// INTEGRATION TODO (#52): dismiss still asks for a re-check via POST /checks, which does not
-// exist here. Recorded in memory only, nothing re-runs. #52 removes the re-check from dismiss.
-const checkRequester = new FakeCheckRequester();
-
 const app = createApp({
   webhook: {
     webhookSecret: env.githubWebhookSecret,
@@ -93,7 +88,7 @@ const app = createApp({
     resolveLinkedTask: (pr) => findLinkedTask(env.githubToken, pr),
   },
   findingsApi: { pool, apiKey: env.findingsApiKey, frontendOrigin: env.frontendOrigin },
-  actions: { github, findings: findingsStore, checks: checkRequester },
+  actions: { github, findings: findingsStore },
   apiKey: env.findingsApiKey,
 });
 
