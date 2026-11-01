@@ -43,6 +43,34 @@ const ALWAYS_REQUIRED = ["FINDINGS_API_KEY"] as const;
 
 const CLAUDE_CREDENTIAL = "CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY";
 
+const SECRET_VARS = [
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "ANTHROPIC_API_KEY",
+  "GITHUB_TOKEN",
+  "GITHUB_WRITE_TOKEN",
+  "GITHUB_WEBHOOK_SECRET",
+  "FINDINGS_API_KEY",
+] as const;
+
+/**
+ * Strips all whitespace from secret env values, in place, so pasted line breaks never reach
+ * child processes (the claude CLI rejects a token containing a newline). Returns one log line
+ * naming the cleaned variables (never their values), or null when nothing changed.
+ */
+export function normaliseSecretEnv(env: NodeJS.ProcessEnv = process.env): string | null {
+  const cleaned: string[] = [];
+  for (const name of SECRET_VARS) {
+    const value = env[name];
+    if (value === undefined) continue;
+    const next = value.replace(/\s+/g, "");
+    if (next !== value) {
+      env[name] = next;
+      cleaned.push(name);
+    }
+  }
+  return cleaned.length ? `config: stripped whitespace from ${cleaned.join(", ")}` : null;
+}
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): LoadedEnv {
   const get = (name: string) => source[name]?.trim() ?? "";
   const production = source.NODE_ENV === "production";
