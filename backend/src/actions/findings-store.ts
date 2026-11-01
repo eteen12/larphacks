@@ -63,10 +63,19 @@ export function createFindingsApiStore({ baseUrl, apiKey, fetch: doFetch = fetch
     return res;
   }
 
+  async function listAll(): Promise<Finding[]> {
+    const res = await call("GET", "/findings");
+    if (!res.ok) throw new FindingsStoreError(res.status, `Findings API GET /findings failed with status ${res.status}`);
+    const body = (await res.json()) as Finding[] | { findings: Finding[] };
+    return Array.isArray(body) ? body : body.findings;
+  }
+
   return {
+    // #18 has no GET /findings/:id yet, so a 404 there is indistinguishable from an unknown id:
+    // fall back to scanning GET /findings. Keeps working unchanged once the route exists.
     async get(id) {
       const res = await call("GET", `/findings/${encodeURIComponent(id)}`);
-      if (res.status === 404) return null;
+      if (res.status === 404) return (await listAll()).find((f) => f.id === id) ?? null;
       if (!res.ok) throw new FindingsStoreError(res.status, `Findings API GET /findings/${id} failed with status ${res.status}`);
       return (await res.json()) as Finding;
     },
@@ -75,11 +84,7 @@ export function createFindingsApiStore({ baseUrl, apiKey, fetch: doFetch = fetch
       if (!res.ok) throw new FindingsStoreError(res.status, `Findings API PATCH /findings/${id}/state failed with status ${res.status}`);
     },
     async listByIssue(repo, issue) {
-      const res = await call("GET", "/findings");
-      if (!res.ok) throw new FindingsStoreError(res.status, `Findings API GET /findings failed with status ${res.status}`);
-      const body = (await res.json()) as Finding[] | { findings: Finding[] };
-      const all = Array.isArray(body) ? body : body.findings;
-      return all.filter((f) => f.repo === repo && f.issue === issue);
+      return (await listAll()).filter((f) => f.repo === repo && f.issue === issue);
     },
   };
 }
