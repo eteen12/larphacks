@@ -58,6 +58,7 @@ function Field({ label, text, sub }: { label: string; text: string; sub?: string
 
 export function FindingCard({ finding, onApprove, onDismiss, onOpen }: Props) {
   const { width } = useWindowDimensions();
+  const [cardWidth, setCardWidth] = useState(0);
   const x = useSharedValue(0);
 
   const pan = usePanGesture({
@@ -98,7 +99,9 @@ export function FindingCard({ finding, onApprove, onDismiss, onOpen }: Props) {
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.card, cardStyle]}>
+      <Animated.View
+        style={[styles.card, cardStyle]}
+        onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}>
         <ThemedView type="backgroundElement" style={styles.inner}>
           <Animated.View style={[styles.badge, styles.approveBadge, approveStyle]}>
             <ThemedText type="smallBold" style={styles.badgeText}>DRIFT</ThemedText>
@@ -114,7 +117,7 @@ export function FindingCard({ finding, onApprove, onDismiss, onOpen }: Props) {
             {finding.item}
           </ThemedText>
 
-          <View style={[styles.compare, width >= WIDE_LAYOUT && styles.compareWide]}>
+          <View style={[styles.compare, cardWidth >= WIDE_LAYOUT && styles.compareWide]}>
             <View style={styles.column}>
               {finding.note_quote ? (
                 <Field
