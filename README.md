@@ -44,12 +44,12 @@ Tests don't catch that. Code review doesn't catch that. AI agents writing the co
 
 ```mermaid
 flowchart LR
-    A[PR opened] --> B[Drift check<br/>Claude reads code,<br/>issue + client notes]
-    B -->|drift found| C[📱 Card on your phone]
-    B -->|all good| G[✅ Green]
-    C -->|swipe right| D[@claude on the PR]
-    C -->|swipe left| G
-    D --> E[Claude pushes the fix]
+    A["PR opened"] --> B["Drift check<br/>Claude reads code,<br/>issue + client notes"]
+    B -->|"drift found"| C["📱 Card on your phone"]
+    B -->|"all good"| G["✅ Green"]
+    C -->|"swipe right"| D["Claude mentioned on the PR"]
+    C -->|"swipe left"| G
+    D --> E["Claude pushes the fix"]
     E --> B
 ```
 
