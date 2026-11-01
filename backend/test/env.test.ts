@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConfigError, loadEnv, postgresConfig } from "../src/env";
+import { ConfigError, loadEnv, normaliseSecretEnv, postgresConfig } from "../src/env";
 
 const full = {
   DATABASE_URL: "postgres://u:p@db.example.com/app",
@@ -101,5 +101,38 @@ describe("postgresConfig", () => {
 
   it("strips sslmode from the connection string", () => {
     expect(postgresConfig("postgres://u:p@db.example.com/db?sslmode=require", {}).connectionString).not.toMatch(/sslmode/);
+  });
+});
+
+describe("normaliseSecretEnv", () => {
+  it("strips all whitespace in place, logs names only, leaves clean values alone", () => {
+    const env: NodeJS.ProcessEnv = {
+      CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-abc\ndef\r\nghi",
+      ANTHROPIC_API_KEY: " key with spaces\t",
+      GITHUB_TOKEN: "clean",
+      FINDINGS_API_KEY: "k\r\n",
+      OTHER: "keep this\n",
+    };
+    const line = normaliseSecretEnv(env);
+    expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBe("sk-ant-abcdefghi");
+    expect(env.ANTHROPIC_API_KEY).toBe("keywithspaces");
+    expect(env.GITHUB_TOKEN).toBe("clean");
+    expect(env.FINDINGS_API_KEY).toBe("k");
+    expect(env.OTHER).toBe("keep this\n");
+    expect(line).toContain("CLAUDE_CODE_OAUTH_TOKEN");
+    expect(line).toContain("ANTHROPIC_API_KEY");
+    expect(line).toContain("FINDINGS_API_KEY");
+    expect(line).not.toContain("GITHUB_TOKEN");
+    for (const v of ["sk-ant", "abc", "def", "keywithspaces", "clean"]) expect(line).not.toContain(v);
+  });
+
+  it("returns null when nothing needed cleaning", () => {
+    expect(normaliseSecretEnv({ GITHUB_TOKEN: "x" })).toBeNull();
+  });
+
+  it("loadEnv reads the cleaned values", () => {
+    const env: NodeJS.ProcessEnv = { ...prod, CLAUDE_CODE_OAUTH_TOKEN: "a\nb" };
+    normaliseSecretEnv(env);
+    expect(loadEnv(env).env.claudeCodeOauthToken).toBe("ab");
   });
 });

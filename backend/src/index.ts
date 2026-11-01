@@ -13,7 +13,10 @@ import { statusStage, statusStartStage } from "./check/status.js";
 import { migrate, type PoolLike } from "./check/store.js";
 import { createGitHub, type GitHubWriter } from "./actions/github.js";
 import { createDbFindingsStore } from "./actions/findings-store.js";
-import { ConfigError, loadEnv, postgresConfig, type Env } from "./env.js";
+import { ConfigError, loadEnv, normaliseSecretEnv, postgresConfig, type Env } from "./env.js";
+
+const cleanedLine = normaliseSecretEnv();
+if (cleanedLine) console.warn(cleanedLine);
 
 let env: Env;
 try {
