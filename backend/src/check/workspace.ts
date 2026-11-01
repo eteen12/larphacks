@@ -27,28 +27,67 @@ export interface WorkspaceDeps {
 
 const defaultUrl = (slug: string) => `https://github.com/${slug}.git`;
 
-async function git(args: string[], cwd?: string, token?: string): Promise<void> {
-  const auth = token ? ["-c", `http.extraHeader=Authorization: Bearer ${token}`] : [];
+/** Basic auth header GitHub accepts for git over HTTPS (Bearer is rejected). */
+export function authHeader(token: string): string {
+  return `Authorization: Basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`;
+}
+
+/**
+ * Git env that sends the auth header only to the remote's own origin. Passed via
+ * GIT_CONFIG_* env vars so the token is never in argv, a URL or .git/config.
+ */
+export function gitAuthEnv(url: string, token?: string): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+  if (!token || !/^https:\/\//.test(url)) return env;
+  const origin = new URL(url).origin;
+  env.GIT_CONFIG_COUNT = "1";
+  env.GIT_CONFIG_KEY_0 = `http.${origin}/.extraHeader`;
+  env.GIT_CONFIG_VALUE_0 = authHeader(token);
+  return env;
+}
+
+function scrub(text: string, token?: string): string {
+  if (!token) return text;
+  const b64 = Buffer.from(`x-access-token:${token}`).toString("base64");
+  return text.split(b64).join("***").split(token).join("***");
+}
+
+function statusOf(stderr: string): number | undefined {
+  const m = /error: (\d{3})\b/.exec(stderr);
+  if (m) return Number(m[1]);
+  if (/Authentication failed|Invalid username or password/i.test(stderr)) return 401;
+  if (/Repository not found/i.test(stderr)) return 404;
+  return undefined;
+}
+
+async function git(
+  args: string[],
+  opts: { cwd?: string; url: string; slug: string; token?: string },
+): Promise<void> {
   try {
-    await execFileAsync("git", [...auth, ...args], { cwd });
+    await execFileAsync("git", args, { cwd: opts.cwd, env: gitAuthEnv(opts.url, opts.token) });
   } catch (err) {
-    const stderr = (err as { stderr?: string }).stderr?.trim();
-    throw new Error(`git ${args[0]} failed${stderr ? `: ${stderr}` : ""}`);
+    const stderr = scrub((err as { stderr?: string }).stderr?.trim() ?? "", opts.token);
+    const status = statusOf(stderr);
+    if (status) throw new Error(`clone failed (${status}) for ${opts.slug}`);
+    throw new Error(`git ${args[0]} failed for ${opts.slug}${stderr ? `: ${stderr}` : ""}`);
   }
 }
 
 /** Fetch exactly the PR head commit; fails cleanly when it no longer exists (force-push). */
 async function cloneCode(
   url: string,
+  slug: string,
   headSha: string,
   dest: string,
   token?: string,
 ): Promise<void> {
   await mkdir(dest, { recursive: true });
-  await git(["init", "-q"], dest);
-  await git(["remote", "add", "origin", url], dest);
-  await git(["fetch", "-q", "--depth", "1", "origin", headSha], dest, token);
-  await git(["checkout", "-q", "FETCH_HEAD"], dest);
+  const o = { url, slug, token };
+  await git(["init", "-q"], { ...o, cwd: dest });
+  await git(["remote", "add", "origin", url], { ...o, cwd: dest });
+  await git(["fetch", "-q", "--depth", "1", "origin", headSha], { ...o, cwd: dest });
+  await git(["checkout", "-q", "FETCH_HEAD"], { ...o, cwd: dest });
 }
 
 /** Create /tmp/drift-<id>/{code,vault,github}; any failure removes the folder. */
@@ -67,15 +106,17 @@ export async function createWorkspace(
   try {
     await cloneCode(
       (deps.codeUrl ?? ((j: CheckJob) => defaultUrl(`${j.owner}/${j.repo}`)))(job),
+      `${job.owner}/${job.repo}`,
       job.headSha,
       ws.codeDir,
       deps.githubToken,
     );
-    await git(
-      ["clone", "-q", "--depth", "1", (deps.vaultUrl ?? defaultUrl)(deps.vaultRepo), ws.vaultDir],
-      undefined,
-      deps.githubToken,
-    );
+    const vaultUrl = (deps.vaultUrl ?? defaultUrl)(deps.vaultRepo);
+    await git(["clone", "-q", "--depth", "1", vaultUrl, ws.vaultDir], {
+      url: vaultUrl,
+      slug: deps.vaultRepo,
+      token: deps.githubToken,
+    });
   } catch (err) {
     await destroyWorkspace(ws).catch(() => {});
     throw err;
