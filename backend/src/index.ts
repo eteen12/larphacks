@@ -9,6 +9,7 @@ import { createRunCheck } from "./check/run-check.js";
 import { agentStage, githubContextStage, saveStage, validateStage, workspaceStage } from "./check/stages.js";
 import { agentJobPrompt, runAgent } from "./check/agent.js";
 import { commentStage } from "./check/pr-comment.js";
+import { statusStage, statusStartStage } from "./check/status.js";
 import { migrate, type PoolLike } from "./check/store.js";
 import { createGitHub, type GitHubWriter } from "./actions/github.js";
 import { loadEnv } from "./env.js";
@@ -45,6 +46,7 @@ const github: GitHubWriter = writeToken
 
 const queue = new CheckQueue(
   createRunCheck([
+    statusStartStage({ github }),
     workspaceStage({ githubToken: env.githubToken, vaultRepo: env.vaultRepo }),
     githubContextStage({ githubToken: env.githubToken }),
     agentStage({ promptPath: checkPromptPath }),
@@ -61,6 +63,7 @@ const queue = new CheckQueue(
     saveStage({ pool }),
   ], [
     commentStage({ github }),
+    statusStage({ github }),
   ]),
 );
 
