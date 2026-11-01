@@ -23,7 +23,7 @@ export function createActionRoutes(deps: ActionDeps, apiKey: string): Hono {
   app.use("/findings/:id/approve", requireApiKey(apiKey));
   app.use("/findings/:id/dismiss", requireApiKey(apiKey));
 
-  app.post("/findings/:id/approve-broken", async (c) => {
+  app.post("/findings/:id/approve", async (c) => {
     const body = await readJson(c);
     if (!body) return c.json({ error: "Body must be a JSON object" }, 400);
     const by = typeof body.by === "string" ? body.by : undefined;
