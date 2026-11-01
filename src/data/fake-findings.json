@@ -1,0 +1,50 @@
+[
+  {
+    "id": "f1",
+    "repo": "demo-org/demo-shop",
+    "pr": 12,
+    "issue": 7,
+    "item": "Refund window",
+    "kind": "conflict",
+    "issue_quote": "Customers can request a refund within 14 days of purchase.",
+    "note_quote": "Client said refunds must be allowed for 30 days after purchase, no exceptions.",
+    "note_path": "clients/acme/call-2026-10-12.md",
+    "note_date": "2026-10-12",
+    "diff_line": "const REFUND_WINDOW_DAYS = 14;",
+    "confidence": 0.92,
+    "searches": ["refund window", "refund days", "return policy"],
+    "state": "open"
+  },
+  {
+    "id": "f2",
+    "repo": "demo-org/demo-shop",
+    "pr": 15,
+    "issue": 9,
+    "item": "Guest checkout",
+    "kind": "no_source",
+    "issue_quote": "Guests can check out without creating an account.",
+    "note_quote": null,
+    "note_path": null,
+    "note_date": null,
+    "diff_line": "if (!user) return proceedAsGuest(cart);",
+    "confidence": 0.71,
+    "searches": ["guest checkout", "account required", "sign up before purchase"],
+    "state": "open"
+  },
+  {
+    "id": "f3",
+    "repo": "demo-org/demo-shop",
+    "pr": 18,
+    "issue": 11,
+    "item": "Order confirmation email",
+    "kind": "conflict",
+    "issue_quote": "Send the confirmation email immediately after payment.",
+    "note_quote": "Confirmation emails should go out only after the warehouse confirms stock.",
+    "note_path": "clients/acme/email-thread-2026-10-20.md",
+    "note_date": "2026-10-20",
+    "diff_line": "await sendConfirmation(order.id); // right after charge",
+    "confidence": 0.84,
+    "searches": ["confirmation email", "order email timing", "warehouse confirm"],
+    "state": "open"
+  }
+]
