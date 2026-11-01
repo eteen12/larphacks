@@ -23,7 +23,7 @@ describe("findings API store", () => {
     const { calls, doFetch } = recordingFetch(() => json(200, fixtureFindings[0]));
     const store = createFindingsApiStore({ baseUrl: "http://api/", apiKey: "k", fetch: doFetch });
     expect((await store.get("f-discount"))!.id).toBe("f-discount");
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(999);
     expect(calls[0]).toMatchObject({ url: "http://api/findings/f-discount", method: "GET", headers: { "x-api-key": "k" } });
   });
 
