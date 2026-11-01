@@ -54,6 +54,7 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "<rootDir>/backend/",
+      "<rootDir>/e2e/",
       "<rootDir>/shared/"
     ]
   },
