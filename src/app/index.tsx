@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { DecisionSheet } from '@/components/decision-sheet';
-import { DRIFT_COLOR, FindingCard } from '@/components/finding-card';
+import { DRIFT_COLOR, EXIT_MS, FindingCard } from '@/components/finding-card';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -32,6 +32,8 @@ import {
 } from '@/lib/findings-store';
 import type { Choice } from '@/lib/swipe';
 import type { Finding } from '@/types/finding';
+
+const SHEET_DELAY_MS = 150;
 
 type Decision = { finding: Finding; choice: Choice; text: string };
 
@@ -63,6 +65,7 @@ export default function CardScreen() {
   }));
 
   const [choice, setChoice] = useState<Choice | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [cardKey, setCardKey] = useState(0);
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<{ message: string; decision: Decision } | null>(null);
@@ -100,8 +103,11 @@ export default function CardScreen() {
   };
 
   const onChosen = (target: Finding, picked: Choice) => {
-    if (picked === 'drift') setChoice(picked);
-    else attempt({ finding: target, choice: picked, text: '' });
+    if (picked === 'drift') {
+      // Lock the card now, but let it settle off screen before the sheet slides up.
+      setChoice(picked);
+      setTimeout(() => setSheetOpen(true), SHEET_DELAY_MS);
+    } else attempt({ finding: target, choice: picked, text: '' });
   };
 
   // The buttons run the same exit as a full swipe.
@@ -109,9 +115,9 @@ export default function CardScreen() {
     if (!finding || choice !== null || sending) return;
     const sign = picked === 'drift' ? 1 : -1;
     dragX.set(
-      withTiming(sign * screenWidth * 1.5, { duration: 200 }, () =>
-        scheduleOnRN(onChosen, finding, picked),
-      ),
+      withTiming(sign * screenWidth * 1.5, { duration: EXIT_MS }, (finished) => {
+        if (finished) scheduleOnRN(onChosen, finding, picked);
+      }),
     );
   };
 
@@ -238,16 +244,18 @@ export default function CardScreen() {
         </SafeAreaView>
 
         <DecisionSheet
-          choice={choice}
+          choice={sheetOpen ? choice : null}
           item={finding?.item ?? ''}
           onCancel={() => {
             setChoice(null);
+            setSheetOpen(false);
             returnCard();
           }}
           onSend={(text) => {
             if (!finding || !choice) return;
             const decision = { finding, choice, text };
             setChoice(null);
+            setSheetOpen(false);
             attempt(decision);
           }}
         />

@@ -32,6 +32,7 @@ export const NOT_DRIFT_COLOR = '#6b7280';
 const LONG_TEXT = 140;
 const WIDE_LAYOUT = 600;
 const PANEL_GAP = 16;
+export const EXIT_MS = 250;
 
 function Field({ label, text, sub }: { label: string; text: string; sub?: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -74,13 +75,13 @@ export function FindingCard({ finding, onChoose, dragX, disabled }: Props) {
     onDeactivate: (e) => {
       const outcome = swipeOutcome(e.translationX, e.velocityX, widthValue.value);
       if (outcome === 'drift') {
-        x.value = withTiming(screenWidth * 1.5, { duration: 200 }, () =>
-          scheduleOnRN(onChoose, finding, 'drift'),
-        );
+        x.value = withTiming(screenWidth * 1.5, { duration: EXIT_MS }, (finished) => {
+          if (finished) scheduleOnRN(onChoose, finding, 'drift');
+        });
       } else if (outcome === 'not_drift') {
-        x.value = withTiming(-screenWidth * 1.5, { duration: 200 }, () =>
-          scheduleOnRN(onChoose, finding, 'not_drift'),
-        );
+        x.value = withTiming(-screenWidth * 1.5, { duration: EXIT_MS }, (finished) => {
+          if (finished) scheduleOnRN(onChoose, finding, 'not_drift');
+        });
       } else {
         x.value = withSpring(0);
       }
