@@ -2,6 +2,9 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "types": [
+      "jest"
+    ],
     "paths": {
       "@/*": [
         "./src/*"
@@ -20,6 +23,7 @@
   ],
   "exclude": [
     "node_modules",
-    "backend"
+    "backend",
+    "shared"
   ]
 }
