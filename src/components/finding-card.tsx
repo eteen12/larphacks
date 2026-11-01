@@ -1,4 +1,5 @@
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import {
   GestureDetector,
   useExclusiveGestures,
@@ -28,13 +29,24 @@ type Props = {
 
 const SWIPE_THRESHOLD = 120;
 
+const LONG_TEXT = 140;
+const WIDE_LAYOUT = 600;
+
 function Field({ label, text, sub }: { label: string; text: string; sub?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > LONG_TEXT;
+
   return (
     <View style={styles.field}>
       <ThemedText type="smallBold" themeColor="textSecondary">
         {label}
       </ThemedText>
-      <ThemedText>{text}</ThemedText>
+      <ThemedText numberOfLines={isLong && !expanded ? 4 : undefined}>{text}</ThemedText>
+      {isLong ? (
+        <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={8}>
+          <ThemedText type="link">{expanded ? 'Show less' : 'Show more'}</ThemedText>
+        </Pressable>
+      ) : null}
       {sub ? (
         <ThemedText type="small" themeColor="textSecondary">
           {sub}
@@ -102,20 +114,23 @@ export function FindingCard({ finding, onApprove, onDismiss, onOpen }: Props) {
             {finding.item}
           </ThemedText>
 
-          <Field
-            label="Issue says"
-            text={finding.issue_quote}
-          />
-          {finding.note_quote ? (
-            <Field
-              label="Client note"
-              text={finding.note_quote}
-              sub={`${finding.note_path} · ${finding.note_date}`}
-            />
-          ) : (
-            <Field label="Client note" text="No note supports this decision." />
-          )}
-          <Field label="Code" text={finding.diff_line} />
+          <View style={[styles.compare, width >= WIDE_LAYOUT && styles.compareWide]}>
+            <View style={styles.column}>
+              {finding.note_quote ? (
+                <Field
+                  label="Client said"
+                  text={finding.note_quote}
+                  sub={`${finding.note_path ?? 'unknown note'} · ${finding.note_date ?? 'date unknown'}`}
+                />
+              ) : (
+                <Field label="Client said" text="No note backs this." />
+              )}
+            </View>
+            <View style={styles.column}>
+              <Field label="Code does" text={finding.diff_line} />
+            </View>
+          </View>
+          <Field label={`Issue #${finding.issue} says`} text={finding.issue_quote} />
           <ThemedText type="small" themeColor="textSecondary">
             {finding.kind === 'conflict' ? 'Conflict' : 'No source'} ·{' '}
             {Math.round(finding.confidence * 100)}% confident
@@ -141,6 +156,15 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: Spacing.one,
+  },
+  compare: {
+    gap: Spacing.three,
+  },
+  compareWide: {
+    flexDirection: 'row',
+  },
+  column: {
+    flex: 1,
   },
   badge: {
     position: 'absolute',
