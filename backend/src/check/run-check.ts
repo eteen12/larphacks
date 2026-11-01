@@ -1,15 +1,17 @@
 import type { AgentResult } from "./agent.js";
 import type { CheckJob, RunCheck } from "./queue.js";
 import type { Workspace } from "./workspace.js";
+import type { StoredFinding } from "../../../shared/finding.js";
 
 /**
  * Per-run state carried through the pipeline. Later leaves add fields:
- * validated findings (#15), saved findings (#17).
+ * saved findings (#17).
  */
 export interface CheckContext {
   job: CheckJob;
   workspace?: Workspace;
   agentResult?: AgentResult;
+  findings?: StoredFinding[];
   /** Registered by stages; run in reverse order when the run ends, success or failure. */
   cleanups: Array<() => Promise<void>>;
 }

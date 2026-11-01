@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
-import type { CheckStage } from "./run-check.js";
+import type { CheckContext, CheckStage } from "./run-check.js";
 import { createWorkspace, destroyWorkspace, type WorkspaceDeps } from "./workspace.js";
 import { writeGithubContext } from "./github-context.js";
-import { agentJobPrompt, runAgent } from "./agent.js";
+import { agentJobPrompt, runAgent, type AgentResult } from "./agent.js";
+import { buildFindings, parseCheckOutput } from "./validate.js";
 
 /** #11 — clone the PR code and the vault into a per-run folder, removed when the run ends. */
 export function workspaceStage(deps: WorkspaceDeps): CheckStage {
@@ -38,6 +39,26 @@ export function agentStage(deps: { promptPath: string; timeoutMs?: number }): Ch
         cwd: ctx.workspace.dir,
         timeoutMs: deps.timeoutMs,
       });
+    },
+  };
+}
+
+/** #15 — validate the agent's 3-part output into findings; one retry, then failed run. */
+export function validateStage(deps: {
+  rerunWithError: (ctx: CheckContext, error: string) => Promise<AgentResult>;
+}): CheckStage {
+  return {
+    name: "validate",
+    async run(ctx) {
+      if (!ctx.agentResult) throw new Error("validate stage needs the agent stage first");
+      let output;
+      try {
+        output = parseCheckOutput(ctx.agentResult.finalText);
+      } catch (err) {
+        const second = await deps.rerunWithError(ctx, (err as Error).message);
+        output = parseCheckOutput(second.finalText); // throws on second failure -> failed run
+      }
+      ctx.findings = buildFindings(output, ctx.job, ctx.agentResult.searches);
     },
   };
 }
