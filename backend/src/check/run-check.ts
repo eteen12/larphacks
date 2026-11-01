@@ -12,6 +12,10 @@ export interface CheckContext {
   workspace?: Workspace;
   agentResult?: AgentResult;
   findings?: StoredFinding[];
+  /** Set when a pipeline stage threw — reporters branch on it. */
+  error?: Error;
+  /** Set when the save stage discarded this run as stale — reporters skip. */
+  discarded?: boolean;
   /** Registered by stages; run in reverse order when the run ends, success or failure. */
   cleanups: Array<() => Promise<void>>;
 }
@@ -23,9 +27,10 @@ export interface CheckStage {
 
 /**
  * The check pipeline, built stage by stage (one leaf adds one stage).
- * Any stage throwing = failed run; the queue logs it. Cleanups always run.
+ * A stage throwing = failed run: ctx.error is set and reporters still run so
+ * the PR is told "check failed" rather than left silent. Cleanups always run.
  */
-export function createRunCheck(stages: CheckStage[]): RunCheck {
+export function createRunCheck(stages: CheckStage[], reporters: CheckStage[] = []): RunCheck {
   return async (job) => {
     const ctx: CheckContext = { job, cleanups: [] };
     const key = `${job.owner}/${job.repo}#${job.prNumber}@${job.headSha}`;
@@ -34,11 +39,17 @@ export function createRunCheck(stages: CheckStage[]): RunCheck {
       for (const stage of stages) {
         await stage.run(ctx);
       }
-      console.log(`check done ${key}`);
+      if (!ctx.error) console.log(`check done ${key}`);
+    } catch (err) {
+      ctx.error = err instanceof Error ? err : new Error(String(err));
     } finally {
       for (const cleanup of ctx.cleanups.reverse()) {
         await cleanup().catch((err) => console.error(`cleanup failed for ${key}`, err));
       }
     }
+    for (const reporter of reporters) {
+      await reporter.run(ctx).catch((err) => console.error(`reporter ${reporter.name} failed for ${key}`, err));
+    }
+    if (ctx.error) throw ctx.error;
   };
 }

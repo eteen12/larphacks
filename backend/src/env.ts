@@ -1,5 +1,6 @@
 export interface Env {
   githubToken: string;
+  githubWriteToken: string;
   githubWebhookSecret: string;
   anthropicApiKey: string;
   databaseUrl: string;
@@ -13,6 +14,7 @@ export interface Env {
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   return {
     githubToken: source.GITHUB_TOKEN ?? "",
+    githubWriteToken: source.GITHUB_WRITE_TOKEN ?? "",
     githubWebhookSecret: source.GITHUB_WEBHOOK_SECRET ?? "",
     anthropicApiKey: source.ANTHROPIC_API_KEY ?? "",
     databaseUrl: source.DATABASE_URL ?? "",

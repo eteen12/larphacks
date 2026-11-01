@@ -8,7 +8,9 @@ import { CheckQueue } from "./check/queue.js";
 import { createRunCheck } from "./check/run-check.js";
 import { agentStage, githubContextStage, saveStage, validateStage, workspaceStage } from "./check/stages.js";
 import { agentJobPrompt, runAgent } from "./check/agent.js";
+import { commentStage } from "./check/pr-comment.js";
 import { migrate, type PoolLike } from "./check/store.js";
+import { createGitHub, type GitHubWriter } from "./actions/github.js";
 import { loadEnv } from "./env.js";
 
 const env = loadEnv();
@@ -29,6 +31,18 @@ if (env.databaseUrl) {
   });
 }
 
+// Write token falls back to the read token; with neither, the writer throws on
+// use and reporters log the failure without crashing the run.
+const writeToken = env.githubWriteToken || env.githubToken;
+const github: GitHubWriter = writeToken
+  ? createGitHub({ token: writeToken })
+  : {
+      reopenIssue: () => Promise.reject(new Error("GITHUB_WRITE_TOKEN is not set")),
+      commentOnIssue: () => Promise.reject(new Error("GITHUB_WRITE_TOKEN is not set")),
+      upsertPrComment: () => Promise.reject(new Error("GITHUB_WRITE_TOKEN is not set")),
+      setCommitStatus: () => Promise.reject(new Error("GITHUB_WRITE_TOKEN is not set")),
+    };
+
 const queue = new CheckQueue(
   createRunCheck([
     workspaceStage({ githubToken: env.githubToken, vaultRepo: env.vaultRepo }),
@@ -45,6 +59,8 @@ const queue = new CheckQueue(
         }),
     }),
     saveStage({ pool }),
+  ], [
+    commentStage({ github }),
   ]),
 );
 

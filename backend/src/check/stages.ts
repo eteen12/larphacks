@@ -72,6 +72,7 @@ export function saveStage(deps: { pool: PoolLike }): CheckStage {
       if (!ctx.findings) throw new Error("save stage needs the validate stage first");
       const result = await saveRunFindings(deps.pool, ctx.job, ctx.findings);
       if (result === "discarded") {
+        ctx.discarded = true;
         console.log(`save discarded: newer run already finished for ${ctx.job.repo}#${ctx.job.prNumber}`);
       }
     },
