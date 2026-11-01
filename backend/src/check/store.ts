@@ -34,6 +34,27 @@ const FINDING_COLUMNS = [
   "head_sha", "created_at",
 ] as const;
 
+/** #18 — read side of the findings API: newest first, optional state filter. */
+export async function listFindings(pool: PoolLike, state?: string): Promise<StoredFinding[]> {
+  const { rows } = await pool.query(
+    `SELECT ${FINDING_COLUMNS.join(", ")} FROM findings
+     WHERE ($1::text IS NULL OR state = $1)
+     ORDER BY created_at DESC`,
+    [state ?? null],
+  );
+  return rows.map((r) => ({ ...r, searches: r.searches ?? [] }) as unknown as StoredFinding);
+}
+
+/** #18 — triage a finding; returns false when the id doesn't exist. */
+export async function setFindingState(
+  pool: PoolLike,
+  id: string,
+  state: "approved" | "dismissed",
+): Promise<boolean> {
+  const { rowCount } = await pool.query("UPDATE findings SET state = $2 WHERE id = $1", [id, state]);
+  return (rowCount ?? 0) > 0;
+}
+
 /**
  * #17 — replace a PR's open findings with a new run's findings, atomically.
  * One transaction: pr_runs upsert takes a per-PR row lock; a finished run with

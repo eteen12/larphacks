@@ -54,6 +54,7 @@ const app = createApp({
     queue,
     resolveLinkedTask: (pr) => findLinkedTask(env.githubToken, pr),
   },
+  findings: { pool, apiKey: env.findingsApiKey, frontendOrigin: env.frontendOrigin },
 });
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
