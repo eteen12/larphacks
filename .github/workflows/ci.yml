@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [integration, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (tests + typecheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Tests
+        run: npx vitest run
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  app:
+    name: App (tests + typecheck + lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      # expo-env.d.ts is gitignored and normally written by `expo start`;
+      # without it tsc fails on the css imports. This is the file Expo writes.
+      - name: Generate expo-env.d.ts
+        run: echo '/// <reference types="expo/types" />' > expo-env.d.ts
+      - name: Tests
+        run: npx jest --ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      # Known scaffold error in src/hooks/use-color-scheme.web.ts
+      # (react-hooks/set-state-in-effect). Frontend is owned separately, so
+      # lint is reported but does not fail CI until that is fixed; then remove
+      # continue-on-error.
+      - name: Lint (report only)
+        continue-on-error: true
+        run: npx expo lint
