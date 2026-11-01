@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+.git
+.expo
+**/dist
+.env*
+!*.env.example
+/src
+/assets
+/scripts
+/.worktrees
+*.md
+!backend/check-prompt.md

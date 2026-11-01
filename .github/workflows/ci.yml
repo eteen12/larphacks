@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [integration, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (tests + typecheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Tests
+        run: npx vitest run
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  app:
+    name: App (tests + typecheck + lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      # expo-env.d.ts is gitignored and normally written by `expo start`;
+      # without it tsc fails on the css imports. This is the file Expo writes.
+      - name: Generate expo-env.d.ts
+        run: echo '/// <reference types="expo/types" />' > expo-env.d.ts
+      - name: Tests
+        run: npx jest --ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      # Known scaffold error in src/hooks/use-color-scheme.web.ts
+      # (react-hooks/set-state-in-effect). Frontend is owned separately, so
+      # lint is reported but does not fail CI until that is fixed; then remove
+      # continue-on-error.
+      - name: Lint (report only)
+        continue-on-error: true
+        run: npx expo lint
+
+  # Browser test of the swipe flow (#64): the real backend over Postgres with a fake GitHub (no
+  # network, no secrets, no Claude), and the app built for web, driven at phone size by Playwright.
+  e2e:
+    name: Browser test (swipe flow)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway service database: the test backend wipes its findings table.
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            e2e/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: e2e
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Build the app for web
+        run: npm run build:app
+        working-directory: e2e
+      - name: Playwright
+        run: npx playwright test
+        working-directory: e2e
+      - name: Upload screenshots, traces and report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+          retention-days: 7
