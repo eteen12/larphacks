@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,15 +6,14 @@ import { FindingCard } from '@/components/finding-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import fakeFindings from '@/data/fake-findings.json';
+import { resolveFinding, useFindings } from '@/lib/findings-store';
 import type { Finding } from '@/types/finding';
 
 export default function InboxScreen() {
-  const [findings, setFindings] = useState<Finding[]>(fakeFindings as Finding[]);
+  const findings = useFindings();
   const current = findings[0];
 
-  const resolve = (finding: Finding) =>
-    setFindings((all) => all.filter((f) => f.id !== finding.id));
+  const resolve = (finding: Finding) => resolveFinding(finding.id);
 
   return (
     <GestureHandlerRootView style={styles.root}>
