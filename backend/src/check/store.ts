@@ -51,8 +51,37 @@ export async function setFindingState(
   id: string,
   state: "approved" | "dismissed",
 ): Promise<boolean> {
-  const { rowCount } = await pool.query("UPDATE findings SET state = $2 WHERE id = $1", [id, state]);
+  const { rowCount } = await pool.query(
+    "UPDATE findings SET state = $2, dismissed_at = CASE WHEN $2 = 'dismissed' THEN now() ELSE dismissed_at END WHERE id = $1",
+    [id, state],
+  );
   return (rowCount ?? 0) > 0;
+}
+
+export type DismissedFinding = StoredFinding & { dismissed_at: string | null };
+
+/** #54 — findings already dismissed for one issue (same repo + issue), oldest dismissal first. */
+export async function listDismissedForIssue(
+  pool: Queryable,
+  repo: string,
+  issue: number,
+): Promise<DismissedFinding[]> {
+  const { rows } = await pool.query(
+    `SELECT ${FINDING_COLUMNS.join(", ")}, dismissed_at FROM findings
+     WHERE repo = $1 AND issue = $2 AND state = 'dismissed'
+     ORDER BY dismissed_at ASC NULLS FIRST, created_at ASC`,
+    [repo, issue],
+  );
+  return rows.map((r) => ({
+    ...r,
+    searches: r.searches ?? [],
+    created_at: toIso(r.created_at),
+    dismissed_at: r.dismissed_at ? toIso(r.dismissed_at) : null,
+  })) as unknown as DismissedFinding[];
+}
+
+function toIso(v: unknown): string {
+  return v instanceof Date ? v.toISOString() : String(v);
 }
 
 /**
