@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { DecisionSheet } from '@/components/decision-sheet';
-import { DRIFT_COLOR, EXIT_MS, FindingCard } from '@/components/finding-card';
+import { DRIFT_COLOR, EXIT_MS, FindingCard, exitDistance } from '@/components/finding-card';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -115,7 +115,7 @@ export default function CardScreen() {
     if (!finding || choice !== null || sending) return;
     const sign = picked === 'drift' ? 1 : -1;
     dragX.set(
-      withTiming(sign * screenWidth * 1.5, { duration: EXIT_MS }, (finished) => {
+      withTiming(sign * exitDistance(screenWidth), { duration: EXIT_MS }, (finished) => {
         if (finished) scheduleOnRN(onChosen, finding, picked);
       }),
     );

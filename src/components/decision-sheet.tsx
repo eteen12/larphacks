@@ -54,10 +54,16 @@ export function DecisionSheet({ choice, item, onCancel, onSend }: Props) {
             style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
           />
           <View style={styles.row}>
-            <Pressable onPress={cancel} style={[styles.button, styles.cancel]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              onPress={cancel}
+              style={[styles.button, styles.cancel]}>
               <ThemedText type="smallBold">Cancel</ThemedText>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send"
               onPress={send}
               disabled={!canSend}
               style={[

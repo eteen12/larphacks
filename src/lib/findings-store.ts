@@ -33,7 +33,7 @@ function subscribe(listener: () => void) {
 }
 
 export function useFindingsStore() {
-  return useSyncExternalStore(subscribe, () => state);
+  return useSyncExternalStore(subscribe, () => state, () => state);
 }
 
 export async function refreshFindings() {

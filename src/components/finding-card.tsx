@@ -34,6 +34,9 @@ const WIDE_LAYOUT = 600;
 const PANEL_GAP = 16;
 export const EXIT_MS = 250;
 
+// The colored panel trails the card by about a card width, so the exit has to clear both.
+export const exitDistance = (screenWidth: number) => screenWidth * 2.2;
+
 function Field({ label, text, sub }: { label: string; text: string; sub?: string }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = text.length > LONG_TEXT;
@@ -63,6 +66,8 @@ export function FindingCard({ finding, onChoose, dragX, disabled }: Props) {
   const ownX = useSharedValue(0);
   const x = dragX ?? ownX;
   const widthValue = useSharedValue(0);
+  // Once the card starts leaving, a later cancel of the drag must not spring it back.
+  const leaving = useSharedValue(false);
   const [cardWidth, setCardWidth] = useState(0);
   const reduceMotion = useReducedMotion();
 
@@ -73,13 +78,15 @@ export function FindingCard({ finding, onChoose, dragX, disabled }: Props) {
       x.value = e.translationX;
     },
     onDeactivate: (e) => {
+      if (leaving.value) return;
       const outcome = swipeOutcome(e.translationX, e.velocityX, widthValue.value);
+      if (outcome) leaving.value = true;
       if (outcome === 'drift') {
-        x.value = withTiming(screenWidth * 1.5, { duration: EXIT_MS }, (finished) => {
+        x.value = withTiming(exitDistance(screenWidth), { duration: EXIT_MS }, (finished) => {
           if (finished) scheduleOnRN(onChoose, finding, 'drift');
         });
       } else if (outcome === 'not_drift') {
-        x.value = withTiming(-screenWidth * 1.5, { duration: EXIT_MS }, (finished) => {
+        x.value = withTiming(-exitDistance(screenWidth), { duration: EXIT_MS }, (finished) => {
           if (finished) scheduleOnRN(onChoose, finding, 'not_drift');
         });
       } else {
@@ -154,7 +161,7 @@ export function FindingCard({ finding, onChoose, dragX, disabled }: Props) {
           </ThemedText>
 
           <View style={[styles.compare, cardWidth >= WIDE_LAYOUT && styles.compareWide]}>
-            <View style={styles.column}>
+            <View style={cardWidth >= WIDE_LAYOUT && styles.column}>
               {finding.note_quote ? (
                 <Field
                   label="Client said"
@@ -165,7 +172,7 @@ export function FindingCard({ finding, onChoose, dragX, disabled }: Props) {
                 <Field label="Client said" text="No note backs this." />
               )}
             </View>
-            <View style={styles.column}>
+            <View style={cardWidth >= WIDE_LAYOUT && styles.column}>
               <Field label="Code does" text={finding.diff_line} />
             </View>
           </View>
