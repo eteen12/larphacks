@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { createRunCheck } from "./run-check.js";
 import { workspaceStage } from "./stages.js";
-import { createWorkspace, destroyWorkspace } from "./workspace.js";
+import { authHeader, createWorkspace, destroyWorkspace, gitAuthEnv } from "./workspace.js";
 import type { CheckJob } from "./queue.js";
 
 const exec = promisify(execFile);
@@ -142,5 +142,56 @@ describe("workspace stage cleanup", () => {
     ]);
     await run(job(code.sha2));
     await expect(stat(seenDir)).rejects.toThrow();
+  });
+});
+
+describe("clone auth", () => {
+  const token = "ghp_SECRETTOKEN123";
+
+  it("builds a Basic x-access-token header, not Bearer", () => {
+    const h = authHeader(token);
+    expect(h).toBe(
+      `Authorization: Basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
+    );
+    expect(h).not.toMatch(/Bearer/);
+  });
+
+  it("scopes the header to the https origin via env, never argv", () => {
+    const env = gitAuthEnv("https://github.com/o/r.git", token);
+    expect(env.GIT_CONFIG_KEY_0).toBe("http.https://github.com/.extraHeader");
+    expect(env.GIT_CONFIG_VALUE_0).toBe(authHeader(token));
+    expect(env.GIT_TERMINAL_PROMPT).toBe("0");
+  });
+
+  it("sends no header for non-https remotes or when there is no token", () => {
+    expect(gitAuthEnv("file:///x", token).GIT_CONFIG_COUNT).toBeUndefined();
+    expect(gitAuthEnv("https://github.com/o/r.git").GIT_CONFIG_COUNT).toBeUndefined();
+  });
+
+  it("names the repo with the status on 401 and never leaks the token", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "dg-bin-"));
+    scratch.push(dir);
+    const fake = join(dir, "git");
+    const b64 = Buffer.from(`x-access-token:${token}`).toString("base64");
+    await writeFile(
+      fake,
+      `#!/bin/sh\necho "remote: Invalid username or password. ${token} ${b64}" >&2\necho "fatal: Authentication failed for 'https://github.com/o/r.git/'" >&2\nexit 128\n`,
+      { mode: 0o755 },
+    );
+    const oldPath = process.env.PATH;
+    process.env.PATH = `${dir}:${oldPath}`;
+    const before = await driftDirs();
+    try {
+      const err = await createWorkspace(
+        { githubToken: token, vaultRepo: "o/vault" },
+        job("a".repeat(40)),
+      ).catch((e: Error) => e);
+      expect((err as Error).message).toBe("clone failed (401) for x/y");
+      expect(String((err as Error).stack)).not.toContain(token);
+      expect(String((err as Error).stack)).not.toContain(b64);
+    } finally {
+      process.env.PATH = oldPath;
+    }
+    expect(await driftDirs()).toEqual(before);
   });
 });
